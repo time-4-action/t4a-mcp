@@ -7,13 +7,17 @@ def create_embedding_text(product):
     """Create embedding text for a single product.
 
     Args:
-        product (dict): Product dictionary with product_name, code, ean, and descriptions.
+        product (dict): Product dictionary with product_name, descriptions.
 
     Returns:
         str: Formatted embedding text combining all product information.
     """
-    text = f"{product['product_name']} Code: {product['code']} EAN: {product['ean']} {product['short_description']} {product['detailed_description']}"
-    return text.strip()
+    parts = [
+        f"Name: {product['product_name']}",
+        f"Short Description: {product['short_description']}",
+        f"Detailed Description: {product['detailed_description']}",
+    ]
+    return "\n".join(parts).strip()
 
 
 def create_embeddings_text(products):

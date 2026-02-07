@@ -115,7 +115,7 @@ def generate_vectorstore(
         raise ValueError("OPENAI_API_KEY not found in environment variables")
 
     embeddings = OpenAIEmbeddings(
-        model="text-embedding-3-small",
+        model="text-embedding-3-large",
         api_key=SecretStr(api_key)
     )
 
@@ -171,7 +171,7 @@ def load_vectorstore(
         raise ValueError("OPENAI_API_KEY not found in environment variables")
 
     embeddings = OpenAIEmbeddings(
-        model="text-embedding-3-small",
+        model="text-embedding-3-large",
         api_key=SecretStr(api_key)
     )
 
