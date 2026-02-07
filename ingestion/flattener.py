@@ -1,0 +1,53 @@
+"""Module for flattening product data into a single-level structure."""
+
+__all__ = ["flatten_products"]
+
+
+def flatten_products(products):
+    """Flatten products into a single-level structure with descriptions.
+
+    For each parent product:
+    - If it has child products, create an entry for each child using child's code/ean/name
+      with parent's short and detailed descriptions
+    - If no child products, use the parent itself
+
+    Args:
+        products (list): List of product dictionaries from the API.
+
+    Returns:
+        list: List of flattened products with structure:
+            {
+                "code": str,
+                "ean": str,
+                "product_name": str,
+                "short_description": str,
+                "detailed_description": str
+            }
+    """
+    flattened = []
+
+    for product in products:
+        short_desc = product.get("short_description", "")
+        detailed_desc = product.get("detailed_description", "")
+
+        # If product has child products, flatten each child
+        if product.get("child_products"):
+            for child in product["child_products"]:
+                flattened.append({
+                    "code": child.get("code", ""),
+                    "ean": child.get("ean_code", ""),
+                    "product_name": child.get("product_name", ""),
+                    "short_description": short_desc,
+                    "detailed_description": detailed_desc
+                })
+        else:
+            # No child products, use parent
+            flattened.append({
+                "code": product.get("code", ""),
+                "ean": product.get("ean_code", ""),
+                "product_name": product.get("product_name", ""),
+                "short_description": short_desc,
+                "detailed_description": detailed_desc
+            })
+
+    return flattened
