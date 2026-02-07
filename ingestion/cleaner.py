@@ -31,17 +31,23 @@ def clean_html(text):
 
 
 def clean_products(products):
-    """Clean HTML from product descriptions.
+    """Clean HTML from product descriptions and remove unpublished products.
 
     Args:
         products (list): List of product dictionaries.
 
     Returns:
-        list: Products with cleaned short_description and detailed_description.
+        list: Products with cleaned short_description and detailed_description,
+              excluding products where published=False.
     """
     cleaned = []
 
     for product in products:
+        # Filter out products with published=False (defaults to True if field is missing)
+        if not product.get("published", True):
+            continue
+
+        # Create a copy and clean the description fields
         cleaned_product = product.copy()
         cleaned_product["short_description"] = clean_html(product.get("short_description", ""))
         cleaned_product["detailed_description"] = clean_html(product.get("detailed_description", ""))

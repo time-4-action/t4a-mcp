@@ -21,7 +21,8 @@ def flatten_products(products):
                 "ean": str,
                 "product_name": str,
                 "short_description": str,
-                "detailed_description": str
+                "detailed_description": str,
+                "published": bool
             }
     """
     flattened = []
@@ -29,6 +30,7 @@ def flatten_products(products):
     for product in products:
         short_desc = product.get("short_description", "")
         detailed_desc = product.get("detailed_description", "")
+        published = product.get("published", False)
 
         # If product has child products, flatten each child
         if product.get("child_products"):
@@ -38,7 +40,8 @@ def flatten_products(products):
                     "ean": child.get("ean_code", ""),
                     "product_name": child.get("product_name", ""),
                     "short_description": short_desc,
-                    "detailed_description": detailed_desc
+                    "detailed_description": detailed_desc,
+                    "published": published
                 })
         else:
             # No child products, use parent
@@ -47,7 +50,8 @@ def flatten_products(products):
                 "ean": product.get("ean_code", ""),
                 "product_name": product.get("product_name", ""),
                 "short_description": short_desc,
-                "detailed_description": detailed_desc
+                "detailed_description": detailed_desc,
+                "published": published
             })
 
     return flattened
