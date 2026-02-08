@@ -1,0 +1,24 @@
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+ROOT_DIR = Path(__file__).parent.parent
+
+load_dotenv(ROOT_DIR / ".env")
+
+CHROMA_DB_PATH = str(ROOT_DIR / "chroma_db")
+
+MK_SECRET_KEY = os.getenv("MK_SECRET_KEY", "")
+MK_COMPANY_ID = os.getenv("MK_COMPANY_ID", "")
+MK_BASE_URL = os.getenv("MK_BASE_URL", "")
+MK_WAREHOUSE_ID = os.getenv("MK_WAREHOUSE_ID", "")
+
+PRODUCTS_API_URL = os.getenv("PRODUCTS_API_URL", "https://api.time-4-action.com/api/export/product")
+
+# Ordered list of pricelist titles by priority.
+# get_price will return the first match found.
+PRICELISTS = [
+    "RRP 2026",
+    "RRP 2025",
+]
