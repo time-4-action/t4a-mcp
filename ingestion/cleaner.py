@@ -31,20 +31,25 @@ def clean_html(text):
 
 
 def clean_products(products):
-    """Clean HTML from product descriptions and remove unpublished products.
+    """Clean HTML from product descriptions and remove unpublished/closeout products.
 
     Args:
         products (list): List of product dictionaries.
 
     Returns:
         list: Products with cleaned short_description and detailed_description,
-              excluding products where published=False.
+              excluding products where published=False or name contains "CLOSE OUT".
     """
     cleaned = []
 
     for product in products:
         # Filter out products with published=False (defaults to True if field is missing)
         if not product.get("published", True):
+            continue
+
+        # Filter out closeout products (products with "CLOSE OUT" in the name)
+        product_name = product.get("product_name", "")
+        if "CLOSE OUT" in product_name.upper():
             continue
 
         # Create a copy and clean the description fields
