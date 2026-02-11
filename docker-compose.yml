@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: etiamsi/t4a-mcp:latest
+    container_name: t4a-mcp
+    restart: unless-stopped
+
+    # Port mapping
+    ports:
+      - "8000:8000"
+
+    # Load environment variables from .env file
+    env_file:
+      - .env
+
+    # Optional: Mount ChromaDB as volume if you want to update it externally
+    # volumes:
+    #   - ./chroma_db:/app/chroma_db:ro
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s

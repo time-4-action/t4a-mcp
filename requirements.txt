@@ -1,0 +1,16 @@
+# Core dependencies for MCP Server
+fastmcp==2.14.4
+fastapi
+uvicorn[standard]
+
+# Vector store and embeddings
+langchain-chroma
+langchain-openai
+chromadb
+
+# Data processing
+beautifulsoup4
+requests
+
+# Environment
+python-dotenv
