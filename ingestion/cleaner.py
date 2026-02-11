@@ -34,11 +34,11 @@ def clean_products(products):
     """Clean HTML from product descriptions and remove unpublished/closeout products.
 
     Args:
-        products (list): List of product dictionaries.
+        products (list): List of flattened product dictionaries (from flattener).
 
     Returns:
         list: Products with cleaned short_description and detailed_description,
-              excluding products where published=False or name contains "CLOSE OUT".
+              excluding products where published=False or parent_name contains "CLOSE OUT".
     """
     cleaned = []
 
@@ -47,9 +47,11 @@ def clean_products(products):
         if not product.get("published", True):
             continue
 
-        # Filter out closeout products (products with "CLOSE OUT" in the name)
-        product_name = product.get("product_name", "")
-        if "CLOSE OUT" in product_name.upper():
+        # Filter out closeout products - check parent product name for "CLOSE OUT"
+        # The parent_name field is set during flattening (for children, it's the parent's name;
+        # for products without children, it's the same as product_name)
+        parent_name = product.get("parent_name", "")
+        if "CLOSE OUT" in parent_name.upper():
             continue
 
         # Create a copy and clean the description fields

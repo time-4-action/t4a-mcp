@@ -39,16 +39,19 @@ def flatten_products(products):
                     "code": child.get("code", ""),
                     "ean": child.get("ean_code", ""),
                     "product_name": child.get("product_name", ""),
+                    "parent_name": product.get("product_name", ""),  # Pass parent name for filtering
                     "short_description": short_desc,
                     "detailed_description": detailed_desc,
                     "published": published
                 })
         else:
-            # No child products, use parent
+            # No child products, use parent (parent_name is same as product_name)
+            parent_name = product.get("product_name", "")
             flattened.append({
                 "code": product.get("code", ""),
                 "ean": product.get("ean_code", ""),
-                "product_name": product.get("product_name", ""),
+                "product_name": parent_name,
+                "parent_name": parent_name,  # For consistency, parent_name = product_name when no children
                 "short_description": short_desc,
                 "detailed_description": detailed_desc,
                 "published": published
