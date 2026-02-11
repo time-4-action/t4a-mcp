@@ -1,10 +1,14 @@
-"""Main script for generating and using the product vectorstore."""
+"""Generate vectorstores for all data sources.
 
-from ingestion.loader import get_products
-from ingestion.flattener import flatten_products
-from ingestion.cleaner import clean_products
-from ingestion.embedding_formatter import create_embeddings_text
-from embeddings.generator import generate_vectorstore, load_vectorstore
+Usage:
+    python scripts/generate_vectorstore.py
+"""
+
+from src.ingestion.sources.products.loader import get_products
+from src.ingestion.sources.products.flattener import flatten_products
+from src.ingestion.sources.products.cleaner import clean_products
+from src.ingestion.sources.products.formatter import create_embeddings_text
+from src.vectorstore.generator import generate_vectorstore, load_vectorstore
 
 
 def main():

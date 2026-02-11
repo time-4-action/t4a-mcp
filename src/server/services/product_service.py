@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 
-from mcp_server.vectorstore import vectorstore
+from src.vectorstore.manager import initialize_vectorstore
+vectorstore = initialize_vectorstore()
 
 
 class ProductPrice(BaseModel):
@@ -101,7 +102,7 @@ def get_price(count_code: str) -> ProductPrice | ProductPriceError:
     with VAT calculated from tax_desc.
     """
     import requests
-    from mcp_server.config import MK_SECRET_KEY, MK_COMPANY_ID, MK_BASE_URL, PRICELISTS
+    from src.config import MK_SECRET_KEY, MK_COMPANY_ID, MK_BASE_URL, PRICELISTS
 
     response = requests.post(
         f"{MK_BASE_URL}/product_list",
@@ -161,7 +162,7 @@ def get_stock(sku: str) -> ProductStock | ProductStockError:
     reservations (if enabled), and microlocation.
     """
     import requests
-    from mcp_server.config import MK_SECRET_KEY, MK_COMPANY_ID, MK_BASE_URL, MK_WAREHOUSE_ID
+    from src.config import MK_SECRET_KEY, MK_COMPANY_ID, MK_BASE_URL, MK_WAREHOUSE_ID
 
     response = requests.post(
         f"{MK_BASE_URL}/warehouse_stock",
@@ -230,7 +231,7 @@ def get_variants(sku: str) -> ProductVariants | ProductVariantsError:
     If SKU is found as a parent code, return that parent's info.
     """
     import requests
-    from mcp_server.config import PRODUCTS_API_URL
+    from src.config import PRODUCTS_API_URL
 
     try:
         response = requests.get(PRODUCTS_API_URL, timeout=10)

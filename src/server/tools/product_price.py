@@ -1,5 +1,5 @@
-from mcp_server import mcp
-from mcp_server.services.product_service import get_price, ProductPrice, ProductPriceError
+from src.server import mcp
+from src.server.services.product_service import get_price, ProductPrice, ProductPriceError
 
 
 @mcp.tool()

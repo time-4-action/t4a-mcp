@@ -1,5 +1,5 @@
-from mcp_server import mcp
-from mcp_server.services.product_service import search_products
+from src.server import mcp
+from src.server.services.product_service import search_products
 
 
 @mcp.tool()

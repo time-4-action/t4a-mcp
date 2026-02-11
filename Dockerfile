@@ -42,7 +42,7 @@ COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Copy only runtime-required code
-COPY --chown=appuser:appuser mcp_server/ ./mcp_server/
+COPY --chown=appuser:appuser src/ ./src/
 
 # Copy pre-built ChromaDB vector database
 COPY --chown=appuser:appuser chroma_db/ ./chroma_db/
@@ -58,4 +58,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Run the server
-CMD ["python", "-m", "uvicorn", "mcp_server.server:api", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "uvicorn", "src.server.app:api", "--host", "0.0.0.0", "--port", "8000"]

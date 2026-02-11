@@ -3,9 +3,12 @@
 import uvicorn
 from fastapi import FastAPI
 
-from mcp_server import mcp
-from mcp_server.vectorstore import vectorstore
-import mcp_server.tools
+from src.server import mcp
+from src.vectorstore.manager import initialize_vectorstore
+import src.server.tools
+
+# Initialize vectorstore
+vectorstore = initialize_vectorstore()
 
 mcp_app = mcp.http_app(path="/")
 

@@ -1,7 +1,15 @@
 {
   "permissions": {
     "allow": [
-      "mcp__docs-langchain__SearchDocsByLangChain"
+      "mcp__docs-langchain__SearchDocsByLangChain",
+      "Bash(test:*)",
+      "Bash(test -f src/__init__.py)",
+      "Bash(find src -name \"*.py\" -type f -exec sed -i 's/from ingestion\\\\./from src.ingestion.sources.products./g' {} ;)",
+      "Bash(find src -name \"*.py\" -type f -exec sed -i 's/from embeddings\\\\./from src.vectorstore./g' {} ;)",
+      "Bash(python -c \"from src.config import CHROMA_DB_PATH; from src.server import mcp; from src.vectorstore.manager import initialize_vectorstore; print\\(''✓ Imports work!''\\)\")",
+      "Bash(find src -name \"*.py\" -type f -exec sed -i 's/from src\\\\.server\\\\.config/from src.config/g' {} ;)",
+      "Bash(find:*)",
+      "Bash(python:*)"
     ]
   }
 }

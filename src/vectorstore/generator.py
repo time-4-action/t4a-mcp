@@ -194,10 +194,10 @@ if __name__ == "__main__":
     2. Run: python embeddings/generator.py
     """
     # Import your ingestion pipeline
-    from ingestion.loader import get_products
-    from ingestion.flattener import flatten_products
-    from ingestion.cleaner import clean_products
-    from ingestion.embedding_formatter import create_embeddings_text
+    from src.ingestion.sources.products.loader import get_products
+    from src.ingestion.sources.products.flattener import flatten_products
+    from src.ingestion.sources.products.cleaner import clean_products
+    from src.ingestion.sources.products.embedding_formatter import create_embeddings_text
 
     print("🚀 Starting vectorstore generation...")
     print("-" * 50)

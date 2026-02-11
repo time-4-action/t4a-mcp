@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 
-from mcp_server import mcp
+from src.server import mcp
 
 
 class ProductURL(BaseModel):

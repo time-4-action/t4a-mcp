@@ -1,7 +1,7 @@
 from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
 
-from mcp_server.config import CHROMA_DB_PATH
+from src.config import CHROMA_DB_PATH
 
 
 def initialize_vectorstore() -> Chroma:
