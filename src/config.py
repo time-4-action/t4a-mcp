@@ -16,6 +16,12 @@ MK_WAREHOUSE_ID = os.getenv("MK_WAREHOUSE_ID", "")
 
 PRODUCTS_API_URL = os.getenv("PRODUCTS_API_URL", "https://api.time-4-action.com/api/export/product")
 
+# Gmail IMAP Configuration
+GMAIL_EMAIL = os.getenv("GMAIL_EMAIL", "")
+GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "")
+GMAIL_IMAP_SERVER = os.getenv("GMAIL_IMAP_SERVER", "imap.gmail.com")
+GMAIL_IMAP_PORT = int(os.getenv("GMAIL_IMAP_PORT", "993"))
+
 # Ordered list of pricelist titles by priority.
 # get_price will return the first match found.
 PRICELISTS = [

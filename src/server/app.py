@@ -2,6 +2,8 @@
 
 import uvicorn
 from fastapi import FastAPI
+from starlette.middleware import Middleware
+from starlette.middleware.cors import CORSMiddleware
 
 from src.server import mcp
 from src.vectorstore.manager import initialize_vectorstore
@@ -10,7 +12,20 @@ import src.server.tools
 # Initialize vectorstore
 vectorstore = initialize_vectorstore()
 
-mcp_app = mcp.http_app(path="/")
+# Create MCP app with CORS for Claude Code compatibility
+mcp_app = mcp.http_app(
+    path="/",
+    middleware=[
+        Middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+    ],
+    transport="sse"
+)
 
 api = FastAPI(
     title="Product Identifier API",
