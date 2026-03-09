@@ -105,7 +105,7 @@ def get_price(count_code: str) -> ProductPrice | ProductPriceError:
     from src.config import MK_SECRET_KEY, MK_COMPANY_ID, MK_BASE_URL, PRICELISTS
 
     response = requests.post(
-        f"{MK_BASE_URL}/product_list",
+        f"{MK_BASE_URL}/json/product_list",
         json={
             "secret_key": MK_SECRET_KEY,
             "company_id": MK_COMPANY_ID,
@@ -165,7 +165,7 @@ def get_stock(sku: str) -> ProductStock | ProductStockError:
     from src.config import MK_SECRET_KEY, MK_COMPANY_ID, MK_BASE_URL, MK_WAREHOUSE_ID
 
     response = requests.post(
-        f"{MK_BASE_URL}/warehouse_stock",
+        f"{MK_BASE_URL}/json/warehouse_stock",
         json={
             "secret_key": MK_SECRET_KEY,
             "company_id": MK_COMPANY_ID,
@@ -185,7 +185,7 @@ def get_stock(sku: str) -> ProductStock | ProductStockError:
     if not stock_list:
         # Get product info to return proper title
         product_response = requests.post(
-            f"{MK_BASE_URL}/product_list",
+            f"{MK_BASE_URL}/json/product_list",
             json={
                 "secret_key": MK_SECRET_KEY,
                 "company_id": MK_COMPANY_ID,

@@ -5,11 +5,24 @@ import contextvars
 _user_ctx: contextvars.ContextVar[dict | None] = contextvars.ContextVar("user_ctx", default=None)
 
 TOOL_PERMISSIONS: dict[str, list[str]] = {
-    "identify_product":     ["read:products"],
-    "get_product_price":    ["read:products"],
-    "get_product_stock":    ["read:products"],
-    "get_product_url":      ["read:products"],
-    "get_product_variants": ["read:products"],
+    # Products
+    "identify_product":                    ["products:read"],
+    "get_product_price":                   ["products:read"],
+    "get_product_stock":                   ["warehouse:read"],
+    "get_product_url":                     ["products:read"],
+    "get_product_variants":                ["products:read"],
+    # Documents
+    "search_documents":                    ["documents:read"],
+    "get_document":                        ["documents:read"],
+    # Partners
+    "get_partner":                         ["partners:read"],
+    "search_blacklist_partner":            ["partners:blacklist:read"],
+    # Delivery
+    "search_tracking_code":                ["delivery:tracking:read"],
+    "get_delivery_service_pricelists":     ["delivery:pricelists:read"],
+    # Warehouse
+    "get_warehouse_list":                  ["warehouse:read"],
+    "get_warehouse_stock":                 ["warehouse:read"],
 }
 
 
