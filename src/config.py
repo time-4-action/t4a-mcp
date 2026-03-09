@@ -9,6 +9,9 @@ load_dotenv(ROOT_DIR / ".env")
 
 CHROMA_DB_PATH = str(ROOT_DIR / "chroma_db")
 
+AUTH0_DOMAIN = os.getenv("AUTH0_DOMAIN", "")
+AUTH0_MCP_AUDIENCE = os.getenv("AUTH0_MCP_AUDIENCE", "")
+
 MK_SECRET_KEY = os.getenv("MK_SECRET_KEY", "")
 MK_COMPANY_ID = os.getenv("MK_COMPANY_ID", "")
 MK_BASE_URL = os.getenv("MK_BASE_URL", "")

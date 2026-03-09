@@ -1,4 +1,5 @@
 from src.server import mcp
+from src.server.permissions import require_permission
 from src.server.services.product_service import search_products
 
 
@@ -13,4 +14,5 @@ def identify_product(query: str, n: int = 5) -> list[dict]:
     Returns:
         List of matching products with name, code, ean, score, and content.
     """
+    require_permission("identify_product")
     return search_products(query, n)

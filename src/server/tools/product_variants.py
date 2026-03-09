@@ -1,4 +1,5 @@
 from src.server import mcp
+from src.server.permissions import require_permission
 from src.server.services.product_service import get_variants, ProductVariants, ProductVariantsError
 
 
@@ -11,4 +12,5 @@ def get_product_variants(sku: str) -> ProductVariants | ProductVariantsError:
     Args:
         sku: Product SKU code (starts with 'P', e.g. 'P03200001092').
     """
+    require_permission("get_product_variants")
     return get_variants(sku)

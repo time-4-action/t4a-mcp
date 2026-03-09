@@ -1,4 +1,5 @@
 from src.server import mcp
+from src.server.permissions import require_permission
 from src.server.services.product_service import get_price, ProductPrice, ProductPriceError
 
 
@@ -12,4 +13,5 @@ def get_product_price(sku: str) -> ProductPrice | ProductPriceError:
     Args:
         sku: Product SKU (always starts with 'P', e.g. 'P01250003085').
     """
+    require_permission("get_product_price")
     return get_price(sku)

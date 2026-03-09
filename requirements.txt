@@ -14,3 +14,6 @@ requests
 
 # Environment
 python-dotenv
+
+# Auth
+python-jose[cryptography]

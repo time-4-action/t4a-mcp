@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 
 from src.server import mcp
+from src.server.permissions import require_permission
 
 
 class ProductURL(BaseModel):
@@ -20,5 +21,6 @@ def get_product_url(code: str) -> ProductURL:
     Args:
         code: Product code/SKU (e.g. 'P01250002095'). Use the `code` field from `identify_product`.
     """
+    require_permission("get_product_url")
     url = f"https://www.patrikinternational.com/en/shop/search/?query={code}"
     return ProductURL(code=code, url=url)

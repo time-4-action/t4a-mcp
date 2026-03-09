@@ -1,4 +1,5 @@
 from src.server import mcp
+from src.server.permissions import require_permission
 from src.server.services.product_service import get_stock, ProductStock, ProductStockError
 
 
@@ -14,4 +15,5 @@ def get_product_stock(sku: str) -> ProductStock | ProductStockError:
     Args:
         sku: Product SKU (always starts with 'P', e.g. 'P01250003085').
     """
+    require_permission("get_product_stock")
     return get_stock(sku)
