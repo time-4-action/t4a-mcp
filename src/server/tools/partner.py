@@ -1,5 +1,5 @@
 from src.server import mcp
-from src.server.permissions import require_permission
+from src.server.permissions import require_permission, with_permission_check
 from src.server.services.partner_service import (
     get_partner, PartnerResult, PartnerError,
     search_blacklist_partner, BlacklistResult,
@@ -7,6 +7,7 @@ from src.server.services.partner_service import (
 
 
 @mcp.tool()
+@with_permission_check
 def get_partner_tool(
     partner_id: str | None = None,
     partner_name: str | None = None,
@@ -43,6 +44,7 @@ def get_partner_tool(
 
 
 @mcp.tool()
+@with_permission_check
 def search_blacklist_partner_tool(
     api_user_email: str,
     partner_email: str | None = None,

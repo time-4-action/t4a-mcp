@@ -1,19 +1,19 @@
 from pydantic import BaseModel, Field
 
 from src.server import mcp
-from src.server.permissions import require_permission
+from src.server.permissions import require_permission, with_permission_check
 
 _MK_BASE = "https://main.metakocka.si/index.jsp"
 
 _FRAGMENT: dict[str, str] = {
-    # Sales
+    # Sales — internal keys
     "sales_order":               "prodaja_salesorder",
     "sales_offer":               "prodaja_ponudbe",
     "sales_bill_domestic":       "prodaja_racuni_domaci",
     "sales_bill_foreign":        "prodaja_racuni_tuji",
     "sales_bill_prepaid":        "prodaja_racuni_avansni",
     "sales_bill_credit_note":    "prodaja_racuni_dobropisi",
-    # Purchase
+    # Purchase — internal keys
     "purchase_order":            "nabava_narocilnice",
     "purchase_bill_foreign":     "nabava_racuni_tuji",
     # FIXME: unknown fragments — need real MK URLs for these:
@@ -23,13 +23,15 @@ _FRAGMENT: dict[str, str] = {
     # "purchase_bill_credit_note":"???",
     # "workorder":                "???",
     # "complaint":                "???",
-    # Warehouse
+    # Warehouse — internal keys
     "warehouse_receiving_note":  "skladisce_nalog_prevzem",
     "warehouse_acceptance_note": "skladisce_prevzemnica2",
     "warehouse_delivery_note":   "skladisce_nalog_odprema",
     "warehouse_packing_list":    "skladisce_dobavnica2",
     "warehouse_inventory":       "skladisce_inventure",
     "transfer_order":            "skladisce_medskladiscnice",
+    # MetaKocka API native doc_type aliases (as returned in document responses)
+    "racuni_racun":              "prodaja_racuni_tuji",
 }
 
 
@@ -42,6 +44,7 @@ class DocumentUrlError(BaseModel):
 
 
 @mcp.tool()
+@with_permission_check
 def get_document_url(doc_type: str, mk_id: str) -> DocumentUrl | DocumentUrlError:
     """Generate a direct MetaKocka UI link for a document.
 

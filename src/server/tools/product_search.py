@@ -1,9 +1,10 @@
 from src.server import mcp
-from src.server.permissions import require_permission
+from src.server.permissions import require_permission, with_permission_check
 from src.server.services.product_service import search_products
 
 
 @mcp.tool()
+@with_permission_check
 def identify_product(query: str, n: int = 5) -> list[dict]:
     """Search the product vector store and return the top N matching products.
 

@@ -1,5 +1,5 @@
 from src.server import mcp
-from src.server.permissions import require_permission
+from src.server.permissions import require_permission, with_permission_check
 from src.server.services.warehouse_service import (
     get_warehouse_list, WarehouseListResult,
     get_warehouse_stock, WarehouseStockResult,
@@ -8,6 +8,7 @@ from src.server.services.warehouse_service import (
 
 
 @mcp.tool()
+@with_permission_check
 def get_warehouse_stock_tool(
     wh_id_list: str | None = None,
     product_code_list: str | None = None,
@@ -49,6 +50,7 @@ def get_warehouse_stock_tool(
 
 
 @mcp.tool()
+@with_permission_check
 def get_warehouse_list_tool() -> WarehouseListResult | WarehouseError:
     """Fetch all warehouses configured in MetaKocka.
 

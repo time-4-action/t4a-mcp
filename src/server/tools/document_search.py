@@ -1,5 +1,5 @@
 from src.server import mcp
-from src.server.permissions import require_permission
+from src.server.permissions import require_permission, with_permission_check
 from src.server.services.document_service import (
     search_documents, SearchResult, SearchError,
     discover_filters, FilterDiscovery, FilterDiscoveryError,
@@ -7,6 +7,7 @@ from src.server.services.document_service import (
 
 
 @mcp.tool()
+@with_permission_check
 def discover_document_filters(doc_type: str | None = None) -> FilterDiscovery | FilterDiscoveryError:
     """Discover available query_advance filter types for MetaKocka document search.
 
@@ -27,6 +28,7 @@ def discover_document_filters(doc_type: str | None = None) -> FilterDiscovery | 
 
 
 @mcp.tool()
+@with_permission_check
 def search_documents_tool(
     doc_type: str,
     query: str | None = None,

@@ -155,21 +155,23 @@ def get_price(count_code: str) -> ProductPrice | ProductPriceError:
     )
 
 
-def get_stock(sku: str) -> ProductStock | ProductStockError:
+def get_stock(sku: str, warehouse_id: str | None = None) -> ProductStock | ProductStockError:
     """Look up warehouse stock for a product by SKU via MetaKocka API.
 
-    Returns stock information for the configured warehouse including amount,
-    reservations (if enabled), and microlocation.
+    Returns stock information for the given warehouse (or the configured default)
+    including amount, reservations (if enabled), and microlocation.
     """
     import requests
     from src.config import MK_SECRET_KEY, MK_COMPANY_ID, MK_BASE_URL, MK_WAREHOUSE_ID
+
+    wh_id = warehouse_id if warehouse_id else MK_WAREHOUSE_ID
 
     response = requests.post(
         f"{MK_BASE_URL}/json/warehouse_stock",
         json={
             "secret_key": MK_SECRET_KEY,
             "company_id": MK_COMPANY_ID,
-            "wh_id_list": MK_WAREHOUSE_ID,
+            "wh_id_list": wh_id,
             "product_code_list": sku,
         },
     )

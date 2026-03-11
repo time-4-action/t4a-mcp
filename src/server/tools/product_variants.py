@@ -1,9 +1,10 @@
 from src.server import mcp
-from src.server.permissions import require_permission
+from src.server.permissions import require_permission, with_permission_check
 from src.server.services.product_service import get_variants, ProductVariants, ProductVariantsError
 
 
 @mcp.tool()
+@with_permission_check
 def get_product_variants(sku: str) -> ProductVariants | ProductVariantsError:
     """Get product variants and detailed descriptions. Returns parent product info with all variant SKUs, EANs, and names.
 

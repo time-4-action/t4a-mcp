@@ -1,9 +1,10 @@
 from src.server import mcp
-from src.server.permissions import require_permission
+from src.server.permissions import require_permission, with_permission_check
 from src.server.services.document_get_service import get_document, DocumentResult, DocumentError
 
 
 @mcp.tool()
+@with_permission_check
 def get_document_tool(
     doc_type: str,
     doc_id: str | None = None,

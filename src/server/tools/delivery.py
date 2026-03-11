@@ -1,5 +1,5 @@
 from src.server import mcp
-from src.server.permissions import require_permission
+from src.server.permissions import require_permission, with_permission_check
 from src.server.services.delivery_service import (
     search_tracking_code, TrackingResult, TrackingError,
     get_delivery_service_pricelists, PricelistResult, PricelistError,
@@ -7,6 +7,7 @@ from src.server.services.delivery_service import (
 
 
 @mcp.tool()
+@with_permission_check
 def search_tracking_code_tool(
     tracking_code: str | None = None,
     sticker_code: str | None = None,
@@ -28,6 +29,7 @@ def search_tracking_code_tool(
 
 
 @mcp.tool()
+@with_permission_check
 def get_delivery_service_pricelists_tool() -> PricelistResult | PricelistError:
     """Fetch all delivery service price lists configured in MetaKocka.
 

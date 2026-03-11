@@ -1,9 +1,10 @@
 from src.server import mcp
-from src.server.permissions import require_permission
+from src.server.permissions import require_permission, with_permission_check
 from src.server.services.product_service import get_price, ProductPrice, ProductPriceError
 
 
 @mcp.tool()
+@with_permission_check
 def get_product_price(sku: str) -> ProductPrice | ProductPriceError:
     """Look up pricing for a product by SKU. Returns net price, VAT breakdown, and gross price from the best-matching pricelist.
 

@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 
 from src.server import mcp
-from src.server.permissions import require_permission
+from src.server.permissions import require_permission, with_permission_check
 
 
 class ProductURL(BaseModel):
@@ -12,6 +12,7 @@ class ProductURL(BaseModel):
 
 
 @mcp.tool()
+@with_permission_check
 def get_product_url(code: str) -> ProductURL:
     """Generate a web URL to search for a product on patrikinternational.com.
 
