@@ -9,6 +9,8 @@ TOOL_PERMISSIONS: dict[str, list[str]] = {
     # Products
     "identify_product":                    ["products:read"],
     "get_product_price":                   ["products:read"],
+    "get_product_pricelists":              ["products:read"],
+    "list_pricelists":                     ["products:read"],
     "get_product_stock":                   ["warehouse:read"],
     "get_product_url":                     ["products:read"],
     "get_product_variants":                ["products:read"],

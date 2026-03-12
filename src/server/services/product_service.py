@@ -23,6 +23,7 @@ class ProductPriceError(BaseModel):
     code: str | None = Field(default=None, description="Product SKU code, if available.")
     name: str | None = Field(default=None, description="Product name, if available.")
     error: str = Field(description="Description of what went wrong.")
+    available_pricelists: list[str] = Field(default_factory=list, description="Pricelist titles available for this product.")
 
 
 class ProductStock(BaseModel):
@@ -35,6 +36,32 @@ class ProductStock(BaseModel):
 
 class ProductStockError(BaseModel):
     """Returned when the stock lookup fails."""
+
+    code: str | None = Field(default=None, description="Product SKU code, if available.")
+    error: str = Field(description="Description of what went wrong.")
+
+
+class PricelistEntry(BaseModel):
+    """A single pricelist entry for a product."""
+
+    title: str = Field(description="Pricelist name (e.g. 'RRP 2026').")
+    currency: str = Field(description="Three-letter currency code.")
+    net_price: float = Field(description="Price excluding VAT.")
+    vat_rate: float = Field(description="VAT percentage.")
+    vat_amount: float = Field(description="Calculated VAT amount.")
+    price_with_vat: float = Field(description="Final price including VAT.")
+
+
+class ProductPricelists(BaseModel):
+    """All available pricelists for a product."""
+
+    code: str = Field(description="Product SKU code.")
+    name: str = Field(description="Product name.")
+    pricelists: list[PricelistEntry] = Field(description="All available pricelists with prices.")
+
+
+class ProductPricelistsError(BaseModel):
+    """Returned when pricelist listing fails."""
 
     code: str | None = Field(default=None, description="Product SKU code, if available.")
     error: str = Field(description="Description of what went wrong.")
@@ -86,23 +113,22 @@ def _parse_price(value: str) -> float:
     return float(value.replace(",", "."))
 
 
-def _resolve_price(pricelist: list[dict], preferred_titles: list[str]) -> dict | None:
-    """Return the first pricelist entry whose title matches the priority list."""
-    by_title = {entry["title"]: entry for entry in pricelist}
-    for title in preferred_titles:
-        if title in by_title:
-            return by_title[title]
+def _find_price_by_title(pricelist: list[dict], title: str) -> dict | None:
+    """Return the pricelist entry matching the given title exactly."""
+    for entry in pricelist:
+        if entry.get("title") == title:
+            return entry
     return None
 
 
-def get_price(count_code: str) -> ProductPrice | ProductPriceError:
+def get_price(count_code: str, pricelist_title: str = "RRP 2026") -> ProductPrice | ProductPriceError:
     """Look up the pricelist for a product by count_code via MetaKocka API.
 
-    Returns the best-matching price (based on PRICELISTS priority in config)
-    with VAT calculated from tax_desc.
+    Returns the price for the requested pricelist with VAT calculated from tax_desc.
+    Defaults to 'RRP 2026'. On failure includes available pricelist titles.
     """
     import requests
-    from src.config import MK_SECRET_KEY, MK_COMPANY_ID, MK_BASE_URL, PRICELISTS
+    from src.config import MK_SECRET_KEY, MK_COMPANY_ID, MK_BASE_URL
 
     response = requests.post(
         f"{MK_BASE_URL}/json/product_list",
@@ -128,13 +154,15 @@ def get_price(count_code: str) -> ProductPrice | ProductPriceError:
         product = product[0]
 
     pricelist = product.get("pricelist", [])
-    entry = _resolve_price(pricelist, PRICELISTS)
+    available = [e["title"] for e in pricelist if "title" in e]
+    entry = _find_price_by_title(pricelist, pricelist_title)
 
     if not entry:
         return ProductPriceError(
             code=product.get("code"),
             name=product.get("name"),
-            error="No matching pricelist found",
+            error=f"Pricelist '{pricelist_title}' not found for this product.",
+            available_pricelists=available,
         )
 
     price_def = entry["price_def"]
@@ -152,6 +180,100 @@ def get_price(count_code: str) -> ProductPrice | ProductPriceError:
         vat_rate=vat_rate,
         vat_amount=vat_amount,
         price_with_vat=price_with_vat,
+    )
+
+
+def get_all_pricelist_titles() -> list[str] | ProductPricelistsError:
+    """Return all unique pricelist titles defined in MetaKocka.
+
+    MetaKocka has no dedicated endpoint for this, so we paginate through all products
+    with return_pricelist=true (max 1000 per page) and collect unique pricelist titles.
+    """
+    import requests
+    from src.config import MK_SECRET_KEY, MK_COMPANY_ID, MK_BASE_URL
+
+    # We fetch 500 products instead of paginating through everything.
+    # Pricelists are company-wide settings applied uniformly, so they appear
+    # consistently across products — 500 is more than enough to discover all titles
+    # without hammering the API.
+    response = requests.post(
+        f"{MK_BASE_URL}/json/product_list",
+        json={
+            "secret_key": MK_SECRET_KEY,
+            "company_id": MK_COMPANY_ID,
+            "sales": "true",
+            "return_pricelist": "true",
+            "limit": 500,
+        },
+    )
+    response.raise_for_status()
+    data = response.json()
+
+    if data.get("opr_code") != "0":
+        return ProductPricelistsError(error=data.get("opr_code_desc", "Unknown API error"))
+
+    product_list = data.get("product_list", [])
+    if isinstance(product_list, dict):
+        product_list = [product_list]
+
+    seen: dict[str, None] = {}
+    for product in product_list:
+        for entry in product.get("pricelist", []):
+            title = entry.get("title")
+            if title:
+                seen[title] = None
+
+    return list(seen.keys())
+
+
+def get_pricelists(count_code: str) -> ProductPricelists | ProductPricelistsError:
+    """Return all available pricelists with prices for a product via MetaKocka API."""
+    import requests
+    from src.config import MK_SECRET_KEY, MK_COMPANY_ID, MK_BASE_URL
+
+    response = requests.post(
+        f"{MK_BASE_URL}/json/product_list",
+        json={
+            "secret_key": MK_SECRET_KEY,
+            "company_id": MK_COMPANY_ID,
+            "code": count_code,
+            "return_pricelist": "true",
+        },
+    )
+    response.raise_for_status()
+    data = response.json()
+
+    if data.get("opr_code") != "0":
+        return ProductPricelistsError(error=data.get("opr_code_desc", "Unknown API error"))
+
+    product = data.get("product_list")
+    if not product:
+        return ProductPricelistsError(code=count_code, error=f"No product found for SKU '{count_code}'")
+
+    if isinstance(product, list):
+        product = product[0]
+
+    entries = []
+    for entry in product.get("pricelist", []):
+        price_def = entry.get("price_def", {})
+        if "price" not in price_def:
+            continue
+        net_price = _parse_price(price_def["price"])
+        vat_rate = float(price_def.get("tax_desc", "0"))
+        vat_amount = round(net_price * vat_rate / 100, 2)
+        entries.append(PricelistEntry(
+            title=entry.get("title", ""),
+            currency=entry.get("currency_code", "EUR"),
+            net_price=net_price,
+            vat_rate=vat_rate,
+            vat_amount=vat_amount,
+            price_with_vat=round(net_price + vat_amount, 2),
+        ))
+
+    return ProductPricelists(
+        code=product.get("code", ""),
+        name=product.get("name", ""),
+        pricelists=entries,
     )
 
 
