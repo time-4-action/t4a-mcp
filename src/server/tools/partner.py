@@ -2,7 +2,6 @@ from src.server import mcp
 from src.server.permissions import require_permission, with_permission_check
 from src.server.services.partner_service import (
     get_partner, PartnerResult, PartnerError,
-    search_blacklist_partner, BlacklistResult,
 )
 
 
@@ -40,35 +39,4 @@ def get_partner_tool(
         partner_email=partner_email,
         partner_phone_number=partner_phone_number,
         show_partner_discount=show_partner_discount,
-    )
-
-
-@mcp.tool()
-@with_permission_check
-def search_blacklist_partner_tool(
-    api_user_email: str,
-    partner_email: str | None = None,
-    partner_phone_number: str | None = None,
-    partner_name: str | None = None,
-) -> BlacklistResult | PartnerError:
-    """Check if a partner is on the MetaKocka blacklist.
-
-    Useful before accepting an order to detect known problem customers.
-    Provide at least one of partner_email, partner_phone_number, or partner_name.
-
-    Args:
-        api_user_email:       Email of the MK user performing the check (required by API).
-        partner_email:        Partner email to check.
-        partner_phone_number: Partner phone/GSM to check.
-        partner_name:         Partner full name to check.
-
-    Returns:
-        BlacklistResult with matching blacklisted partners, or PartnerError on failure.
-    """
-    require_permission("search_blacklist_partner")
-    return search_blacklist_partner(
-        api_user_email=api_user_email,
-        partner_email=partner_email,
-        partner_phone_number=partner_phone_number,
-        partner_name=partner_name,
     )

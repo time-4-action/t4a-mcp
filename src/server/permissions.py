@@ -17,9 +17,7 @@ TOOL_PERMISSIONS: dict[str, list[str]] = {
     "get_document":                        ["documents:read"],
     # Partners
     "get_partner":                         ["partners:read"],
-    "search_blacklist_partner":            ["partners:blacklist:read"],
     # Delivery
-    "search_tracking_code":                ["delivery:tracking:read"],
     "get_delivery_service_pricelists":     ["delivery:pricelists:read"],
     # Warehouse
     "get_warehouse_list":                  ["warehouse:read"],
