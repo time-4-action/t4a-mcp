@@ -30,10 +30,7 @@ RUN apt-get update && \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user for security
-RUN useradd -m -u 1000 appuser && \
-    mkdir -p /app/chroma_db && \
-    chown -R appuser:appuser /app
+RUN mkdir -p /app/chroma_db
 
 WORKDIR /app
 
@@ -42,13 +39,7 @@ COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Copy only runtime-required code
-COPY --chown=appuser:appuser src/ ./src/
-
-# Copy pre-built ChromaDB vector database
-COPY --chown=appuser:appuser chroma_db/ ./chroma_db/
-
-# Switch to non-root user
-USER appuser
+COPY src/ ./src/
 
 # Expose port
 EXPOSE 8000

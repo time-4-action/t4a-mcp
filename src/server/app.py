@@ -10,6 +10,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from src.server import mcp
 from src.server.auth import verify_token
 from src.server.permissions import set_user
+from src.server.routes.admin import router as admin_router
 from src.vectorstore.manager import initialize_vectorstore
 import src.server.tools
 
@@ -68,6 +69,7 @@ api = FastAPI(
 )
 
 api.add_middleware(AuthMiddleware)
+api.include_router(admin_router)
 
 
 @api.get("/")

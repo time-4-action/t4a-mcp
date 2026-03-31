@@ -1,10 +1,6 @@
-version: '3.8'
-
 services:
-  mcp-server:
-    build:
-      context: .
-      dockerfile: Dockerfile
+  t4a-mcp:
+    # Pull pre-built image from Docker Hub
     image: etiamsi/t4a-mcp:latest
     container_name: t4a-mcp
     restart: unless-stopped
@@ -13,13 +9,9 @@ services:
     ports:
       - "8000:8000"
 
-    # Load environment variables from .env file
+    # Load all environment variables from .env file
     env_file:
       - .env
-
-    # Optional: Mount ChromaDB as volume if you want to update it externally
-    # volumes:
-    #   - ./chroma_db:/app/chroma_db:ro
 
     # Health check
     healthcheck:
@@ -28,3 +20,14 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+
+    # Persistent ChromaDB storage
+    volumes:
+      - ./chroma_db:/app/chroma_db
+
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
