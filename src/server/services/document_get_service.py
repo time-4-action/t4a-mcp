@@ -72,3 +72,66 @@ def get_document(
         return DocumentError(error=data.get("opr_code_desc") or data.get("opr_desc", "Unknown API error"))
 
     return DocumentResult(document=_slim_document(data) if slim else data)
+
+
+class InvoiceAttachment(BaseModel):
+    source_url: str = Field(description="Public URL to the attachment file.")
+    file_name: str | None = Field(default=None, description="File name, if available.")
+
+
+class InvoiceAttachmentsResult(BaseModel):
+    doc_type: str = Field(description="Document type of the invoice.")
+    doc_id: str | None = Field(default=None, description="MetaKocka internal document ID.")
+    doc_count_code: str | None = Field(default=None, description="Human-readable document number.")
+    attachments: list[InvoiceAttachment] = Field(description="List of attachments for the invoice.")
+
+
+class InvoiceAttachmentsError(BaseModel):
+    error: str = Field(description="Description of what went wrong.")
+
+
+def get_invoice_attachments(
+    doc_type: str,
+    doc_id: str | None = None,
+    doc_count_code: str | None = None,
+) -> InvoiceAttachmentsResult | InvoiceAttachmentsError:
+    """Fetch attachment list for a MetaKocka invoice."""
+    payload: dict = {
+        "secret_key": MK_SECRET_KEY,
+        "company_id": MK_COMPANY_ID,
+        "doc_type": doc_type,
+        "show_attachments": "true",
+    }
+    if doc_id is not None:
+        payload["doc_id"] = doc_id
+    if doc_count_code is not None:
+        payload["doc_count_code"] = doc_count_code
+
+    try:
+        response = requests.post(f"{MK_BASE_URL}/get_document", json=payload)
+        response.raise_for_status()
+    except Exception as e:
+        return InvoiceAttachmentsError(error=str(e))
+
+    data = response.json()
+    if data.get("opr_code") != "0":
+        return InvoiceAttachmentsError(
+            error=data.get("opr_code_desc") or data.get("opr_desc", "Unknown API error")
+        )
+
+    raw_attachments = data.get("attachment_list") or []
+    attachments = [
+        InvoiceAttachment(
+            source_url=a.get("source_url", ""),
+            file_name=a.get("file_name"),
+        )
+        for a in raw_attachments
+        if a.get("source_url")
+    ]
+
+    return InvoiceAttachmentsResult(
+        doc_type=doc_type,
+        doc_id=doc_id,
+        doc_count_code=doc_count_code,
+        attachments=attachments,
+    )

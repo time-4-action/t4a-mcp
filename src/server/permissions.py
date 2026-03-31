@@ -17,6 +17,7 @@ TOOL_PERMISSIONS: dict[str, list[str]] = {
     # Documents
     "search_documents":                    ["documents:read"],
     "get_document":                        ["documents:read"],
+    "get_invoice_attachments":             ["documents:read"],
     # Partners
     "get_partner":                         ["partners:read"],
     # Delivery

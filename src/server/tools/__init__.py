@@ -6,6 +6,7 @@ from src.server.tools.product_stock import get_product_stock
 from src.server.tools.product_variants import get_product_variants
 from src.server.tools.document_search import search_documents_tool, discover_document_filters
 from src.server.tools.document_get import get_document_tool
+from src.server.tools.document_attachments import get_invoice_attachments_tool
 from src.server.tools.document_url import get_document_url
 from src.server.tools.partner import get_partner_tool
 from src.server.tools.delivery import get_delivery_service_pricelists_tool

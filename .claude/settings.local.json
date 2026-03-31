@@ -9,7 +9,9 @@
       "Bash(python -c \"from src.config import CHROMA_DB_PATH; from src.server import mcp; from src.vectorstore.manager import initialize_vectorstore; print\\(''✓ Imports work!''\\)\")",
       "Bash(find src -name \"*.py\" -type f -exec sed -i 's/from src\\\\.server\\\\.config/from src.config/g' {} ;)",
       "Bash(find:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(xargs grep:*)",
+      "Bash(git:*)"
     ]
   }
 }

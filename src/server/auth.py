@@ -24,6 +24,10 @@ def verify_token(authorization: str | None) -> dict:
 
     token = authorization[7:]
 
+    api_key = os.getenv("API_KEY")
+    if api_key and token == api_key:
+        return {"sub": "api_key", "email": "", "permissions": ["admin:all"]}
+
     try:
         header = jwt.get_unverified_header(token)
         jwks = _get_jwks()
