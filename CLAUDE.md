@@ -69,6 +69,53 @@ Two parallel subsystems share a single FastAPI app (`src/server/app.py:api`):
 3. Import the tool in `src/server/tools/__init__.py`.
 4. If it needs a MetaKocka API call, add a service in `src/server/services/`.
 
+### Mid-tool permission checks (parameter-level scoping)
+
+When a tool's behaviour depends on whether the user has an additional scope (e.g. restricting which pricelist they can request), check inside the handler after the main `require_permission` call:
+
+```python
+from src.server.permissions import require_permission, with_permission_check, has_permission, get_current_permissions
+
+@mcp.tool()
+@with_permission_check
+def my_tool(param: str = DEFAULT) -> ...:
+    require_permission("my_tool")          # gate on the base scope
+    if param != DEFAULT and not has_permission(get_current_permissions(), ["extra:scope"]):
+        raise PermissionError("Forbidden: 'extra:scope' required for non-default param")
+    ...
+```
+
+`with_permission_check` catches the `PermissionError` and returns a structured error dict to the LLM.
+
+### Auth0 scopes in use
+
+| Scope | Grants |
+|---|---|
+| `products:read` | identify, price (default pricelist only), URL, variants |
+| `products:pricelists:read` | list all pricelists, get all pricelists per product, request any pricelist in `get_product_price` |
+| `warehouse:read` | stock per product, warehouse list, bulk stock |
+| `documents:read` | search + get documents, invoice attachments |
+| `partners:read` | partner lookup |
+| `delivery:pricelists:read` | delivery service pricelists |
+| `knowledge:read` | company knowledge base search |
+| `admin:all` | bypasses all permission checks |
+
+`DEFAULT_PRICELIST` is defined in `src/server/services/product_service.py` and must be imported by any tool that enforces the pricelist restriction.
+
+### Auth0 roles
+
+Assign these roles to users in Auth0 rather than individual scopes.
+
+| Role | Scopes |
+|---|---|
+| `product_viewer` | `products:read` |
+| `sales` | `products:read`, `products:pricelists:read`, `partners:read`, `documents:read`, `delivery:pricelists:read` |
+| `warehouse` | `products:read`, `warehouse:read`, `documents:read` |
+| `assistant` | all 7 scopes |
+| `admin` | `admin:all` |
+
+Add `knowledge:read` to any role that should access the `company_knowledge` tool.
+
 ## Environment Variables
 
 Required: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `AUTH0_DOMAIN`, `AUTH0_MCP_AUDIENCE`, `MK_SECRET_KEY`, `MK_COMPANY_ID`, `MK_BASE_URL`, `MK_WAREHOUSE_ID`, `PRODUCTS_API_URL`, `MONGO_URI`, `CHROMA_HOST`, `CHROMA_PORT`, `ADMIN_API_KEY`.

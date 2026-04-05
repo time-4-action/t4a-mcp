@@ -199,18 +199,17 @@ Create the following permissions on your Auth0 API (Dashboard → **Applications
 
 ### Roles
 
-| Role | Key Permissions |
-|---|---|
-| `viewer` | Read-only: documents, products, partners, warehouse, delivery tracking |
-| `sales_rep` | viewer + create/update sales orders & offers, manage partners, send messages |
-| `warehouse_op` | Documents + mark shipped, change warehouse, sync stock, generate stickers |
-| `accountant` | Bills, payments, bank statements, transactions, cash register, accounting export |
-| `manager` | Full operational access across all domains |
-| `admin` | `admin:all` — bypasses all permission checks |
+Create these roles in Auth0 (Dashboard → **User Management → Roles**) and attach the listed permissions to each role. Assign roles to users instead of individual permissions.
 
-Add `knowledge:read` to any role that should be able to use the `company_knowledge` tool.
+| Role | Scopes | Intended for |
+|---|---|---|
+| `product_viewer` | `products:read` | External tools or integrations that only need product search and default pricing |
+| `sales` | `products:read`, `products:pricelists:read`, `partners:read`, `documents:read`, `delivery:pricelists:read` | Sales staff — full pricing visibility, partner lookup, order/invoice access |
+| `warehouse` | `products:read`, `warehouse:read`, `documents:read` | Warehouse staff — stock levels, warehouse list, delivery notes and packing lists |
+| `assistant` | all 7 scopes | General-purpose AI assistant that needs access to everything |
+| `admin` | `admin:all` | Administrators and service-to-service integrations |
 
-See [docs/roles.md](docs/roles.md) for the full permission list per role.
+Add `knowledge:read` to any role whose users should be able to query the company knowledge base via the `company_knowledge` tool.
 
 ---
 
