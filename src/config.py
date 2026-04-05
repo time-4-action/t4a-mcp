@@ -31,3 +31,7 @@ PRICELISTS = [
     "RRP 2026",
     "RRP 2025",
 ]
+
+# ChromaDB HTTP service (used by both products and knowledge collections)
+CHROMA_HOST = os.getenv("CHROMA_HOST", "chromadb")
+CHROMA_PORT = int(os.getenv("CHROMA_PORT", "8000"))

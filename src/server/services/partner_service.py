@@ -3,6 +3,9 @@ from pydantic import BaseModel, Field
 
 from src.config import MK_SECRET_KEY, MK_COMPANY_ID, MK_BASE_URL
 
+_session = requests.Session()
+_MK_TIMEOUT = 15  # seconds
+
 
 class PartnerResult(BaseModel):
     count: int = Field(description="Number of partners returned.")
@@ -36,7 +39,7 @@ def get_partner(
         payload["show_partner_discount"] = "true"
 
     try:
-        response = requests.post(f"{MK_BASE_URL}/get_partner", json=payload)
+        response = _session.post(f"{MK_BASE_URL}/get_partner", json=payload, timeout=_MK_TIMEOUT)
         response.raise_for_status()
     except Exception as e:
         return PartnerError(error=str(e))
@@ -73,7 +76,11 @@ def search_blacklist_partner(
         payload["partner_name"] = partner_name
 
     try:
-        response = requests.post(f"{MK_BASE_URL}/search_blacklist_partner", json=payload)
+        response = _session.post(
+            f"{MK_BASE_URL}/search_blacklist_partner",
+            json=payload,
+            timeout=_MK_TIMEOUT,
+        )
         response.raise_for_status()
     except Exception as e:
         return PartnerError(error=str(e))

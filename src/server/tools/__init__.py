@@ -11,3 +11,4 @@ from src.server.tools.document_url import get_document_url
 from src.server.tools.partner import get_partner_tool
 from src.server.tools.delivery import get_delivery_service_pricelists_tool
 from src.server.tools.warehouse import get_warehouse_list_tool
+from src.server.tools.company_knowledge import company_knowledge

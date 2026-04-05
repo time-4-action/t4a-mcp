@@ -2,15 +2,35 @@
 fastmcp==2.14.4
 fastapi
 uvicorn[standard]
+python-multipart
 
 # Vector store and embeddings
 langchain-chroma
 langchain-openai
-chromadb
+langchain-text-splitters
+chromadb>=0.5.0,<1.0.0
+openai>=1.30.0
 
 # Data processing
 beautifulsoup4
 requests
+httpx
+aiofiles
+
+# File parsing (Knowledge API)
+unstructured[pdf,docx,xlsx]
+trafilatura
+
+# Hybrid search
+rank_bm25
+sentence-transformers
+# torch installed separately (CPU-only) — see Dockerfile
+
+# LLM enrichment
+anthropic>=0.28.0
+
+# Database
+motor
 
 # Environment
 python-dotenv

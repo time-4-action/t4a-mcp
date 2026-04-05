@@ -1,18 +1,23 @@
 import logging
 
+import chromadb
 from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
 
-from src.config import CHROMA_DB_PATH
+from src.config import CHROMA_HOST, CHROMA_PORT
 
 logger = logging.getLogger(__name__)
 
 
 def initialize_vectorstore() -> Chroma:
     embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
+    chroma_client = chromadb.HttpClient(
+        host=CHROMA_HOST,
+        port=CHROMA_PORT,
+    )
     vs = Chroma(
         collection_name="products",
-        persist_directory=CHROMA_DB_PATH,
+        client=chroma_client,
         embedding_function=embeddings,
     )
 

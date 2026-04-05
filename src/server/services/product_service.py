@@ -1,7 +1,35 @@
+import time
+
+import requests
 from pydantic import BaseModel, Field
 
+from src.config import MK_SECRET_KEY, MK_COMPANY_ID, MK_BASE_URL, MK_WAREHOUSE_ID, PRODUCTS_API_URL
 from src.vectorstore.manager import initialize_vectorstore
+
 vectorstore = initialize_vectorstore()
+
+DEFAULT_PRICELIST = "RRP 2026"
+
+# Shared session for connection pooling across all MetaKocka API calls
+_session = requests.Session()
+_MK_TIMEOUT = 15  # seconds
+
+# Simple TTL cache for the products list (used by get_variants)
+_products_data: dict | None = None
+_products_cache_time: float = 0.0
+_PRODUCTS_CACHE_TTL = 300  # 5 minutes
+
+
+def _fetch_products_data() -> dict:
+    global _products_data, _products_cache_time
+    now = time.monotonic()
+    if _products_data is not None and now - _products_cache_time < _PRODUCTS_CACHE_TTL:
+        return _products_data
+    response = _session.get(PRODUCTS_API_URL, timeout=_MK_TIMEOUT)
+    response.raise_for_status()
+    _products_data = response.json()
+    _products_cache_time = now
+    return _products_data
 
 
 class ProductPrice(BaseModel):
@@ -127,10 +155,7 @@ def get_price(count_code: str, pricelist_title: str = "RRP 2026") -> ProductPric
     Returns the price for the requested pricelist with VAT calculated from tax_desc.
     Defaults to 'RRP 2026'. On failure includes available pricelist titles.
     """
-    import requests
-    from src.config import MK_SECRET_KEY, MK_COMPANY_ID, MK_BASE_URL
-
-    response = requests.post(
+    response = _session.post(
         f"{MK_BASE_URL}/json/product_list",
         json={
             "secret_key": MK_SECRET_KEY,
@@ -138,6 +163,7 @@ def get_price(count_code: str, pricelist_title: str = "RRP 2026") -> ProductPric
             "code": count_code,
             "return_pricelist": "true",
         },
+        timeout=_MK_TIMEOUT,
     )
     response.raise_for_status()
     data = response.json()
@@ -196,7 +222,7 @@ def get_all_pricelist_titles() -> list[str] | ProductPricelistsError:
     # Pricelists are company-wide settings applied uniformly, so they appear
     # consistently across products — 500 is more than enough to discover all titles
     # without hammering the API.
-    response = requests.post(
+    response = _session.post(
         f"{MK_BASE_URL}/json/product_list",
         json={
             "secret_key": MK_SECRET_KEY,
@@ -205,6 +231,7 @@ def get_all_pricelist_titles() -> list[str] | ProductPricelistsError:
             "return_pricelist": "true",
             "limit": 500,
         },
+        timeout=_MK_TIMEOUT,
     )
     response.raise_for_status()
     data = response.json()
@@ -228,10 +255,7 @@ def get_all_pricelist_titles() -> list[str] | ProductPricelistsError:
 
 def get_pricelists(count_code: str) -> ProductPricelists | ProductPricelistsError:
     """Return all available pricelists with prices for a product via MetaKocka API."""
-    import requests
-    from src.config import MK_SECRET_KEY, MK_COMPANY_ID, MK_BASE_URL
-
-    response = requests.post(
+    response = _session.post(
         f"{MK_BASE_URL}/json/product_list",
         json={
             "secret_key": MK_SECRET_KEY,
@@ -239,6 +263,7 @@ def get_pricelists(count_code: str) -> ProductPricelists | ProductPricelistsErro
             "code": count_code,
             "return_pricelist": "true",
         },
+        timeout=_MK_TIMEOUT,
     )
     response.raise_for_status()
     data = response.json()
@@ -283,12 +308,9 @@ def get_stock(sku: str, warehouse_id: str | None = None) -> ProductStock | Produ
     Returns stock information for the given warehouse (or the configured default)
     including amount, reservations (if enabled), and microlocation.
     """
-    import requests
-    from src.config import MK_SECRET_KEY, MK_COMPANY_ID, MK_BASE_URL, MK_WAREHOUSE_ID
-
     wh_id = warehouse_id if warehouse_id else MK_WAREHOUSE_ID
 
-    response = requests.post(
+    response = _session.post(
         f"{MK_BASE_URL}/json/warehouse_stock",
         json={
             "secret_key": MK_SECRET_KEY,
@@ -296,6 +318,7 @@ def get_stock(sku: str, warehouse_id: str | None = None) -> ProductStock | Produ
             "wh_id_list": wh_id,
             "product_code_list": sku,
         },
+        timeout=_MK_TIMEOUT,
     )
     response.raise_for_status()
     data = response.json()
@@ -308,13 +331,14 @@ def get_stock(sku: str, warehouse_id: str | None = None) -> ProductStock | Produ
     # If no stock entries, need to get product name from product_list API
     if not stock_list:
         # Get product info to return proper title
-        product_response = requests.post(
+        product_response = _session.post(
             f"{MK_BASE_URL}/json/product_list",
             json={
                 "secret_key": MK_SECRET_KEY,
                 "company_id": MK_COMPANY_ID,
                 "code": sku,
             },
+            timeout=_MK_TIMEOUT,
         )
         product_response.raise_for_status()
         product_data = product_response.json()
@@ -354,13 +378,8 @@ def get_variants(sku: str) -> ProductVariants | ProductVariantsError:
     If SKU is found in child_products, return all children from that parent.
     If SKU is found as a parent code, return that parent's info.
     """
-    import requests
-    from src.config import PRODUCTS_API_URL
-
     try:
-        response = requests.get(PRODUCTS_API_URL, timeout=10)
-        response.raise_for_status()
-        data = response.json()
+        data = _fetch_products_data()
     except Exception as e:
         return ProductVariantsError(code=sku, error=f"API request failed: {str(e)}")
 

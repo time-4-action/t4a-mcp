@@ -3,6 +3,9 @@ from pydantic import BaseModel, Field
 
 from src.config import MK_SECRET_KEY, MK_COMPANY_ID, MK_BASE_URL
 
+_session = requests.Session()
+_MK_TIMEOUT = 15  # seconds
+
 
 class WarehouseListResult(BaseModel):
     count: int = Field(description="Number of warehouses returned.")
@@ -43,7 +46,11 @@ def get_warehouse_stock(
         payload["eshop_sync"] = "true"
 
     try:
-        response = requests.post(f"{MK_BASE_URL}/json/warehouse_stock", json=payload)
+        response = _session.post(
+            f"{MK_BASE_URL}/json/warehouse_stock",
+            json=payload,
+            timeout=_MK_TIMEOUT,
+        )
         response.raise_for_status()
     except Exception as e:
         return WarehouseError(error=str(e))
@@ -63,7 +70,11 @@ def get_warehouse_list() -> WarehouseListResult | WarehouseError:
     payload = {"secret_key": MK_SECRET_KEY, "company_id": MK_COMPANY_ID}
 
     try:
-        response = requests.post(f"{MK_BASE_URL}/json/warehouse_list", json=payload)
+        response = _session.post(
+            f"{MK_BASE_URL}/json/warehouse_list",
+            json=payload,
+            timeout=_MK_TIMEOUT,
+        )
         response.raise_for_status()
     except Exception as e:
         return WarehouseError(error=str(e))

@@ -1,8 +1,12 @@
 import re
+
 import requests
 from pydantic import BaseModel, Field
 
 from src.config import MK_SECRET_KEY, MK_COMPANY_ID, MK_BASE_URL
+
+_session = requests.Session()
+_MK_TIMEOUT = 15  # seconds
 
 
 # Filters that need a full ISO datetime value (YYYY-MM-DDThh:mm:ss+HH:MM)
@@ -64,7 +68,11 @@ def discover_filters(doc_type: str | None = None) -> FilterDiscovery | FilterDis
         payload["doc_type"] = doc_type
 
     try:
-        response = requests.post(f"{MK_BASE_URL}/search_query_advance_discovery", json=payload)
+        response = _session.post(
+            f"{MK_BASE_URL}/search_query_advance_discovery",
+            json=payload,
+            timeout=_MK_TIMEOUT,
+        )
         response.raise_for_status()
     except Exception as e:
         return FilterDiscoveryError(error=str(e))
@@ -121,7 +129,7 @@ def search_documents(
     if show_status_code:
         payload["show_status_code"] = "true"
 
-    response = requests.post(f"{MK_BASE_URL}/search", json=payload)
+    response = _session.post(f"{MK_BASE_URL}/search", json=payload, timeout=_MK_TIMEOUT)
     response.raise_for_status()
     data = response.json()
 

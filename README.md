@@ -1,6 +1,6 @@
-# T4A MCP Server
+# T4A MCP Server + Knowledge Base
 
-A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that exposes [MetaKocka ERP](https://www.metakocka.si/) operations as AI-callable tools. Secured by Auth0 JWT with role-based access control. Powers AI assistants (Claude, etc.) with live ERP data: products, orders, partners, warehouse stock, and delivery.
+A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that exposes [MetaKocka ERP](https://www.metakocka.si/) operations and a company knowledge base as AI-callable tools. Secured by Auth0 JWT with role-based access control. Powers AI assistants (Claude, etc.) with live ERP data and indexed company documents.
 
 ---
 
@@ -12,23 +12,28 @@ AI Client (Claude/Next.js)
         ├─ Auth0 JWT obtained
         └─► MCP SSE connection  →  AuthMiddleware (JWT validation)
                                         └─► require_permission() (RBAC)
-                                              └─► MCP Tool  →  MetaKocka REST API
-                                                                ChromaDB (product search)
+                                              ├─► MCP Tool  →  MetaKocka REST API
+                                              │                 ChromaDB (product search)
+                                              └─► company_knowledge  →  RAG pipeline
+                                                                         ChromaDB + BM25 + Reranker
 ```
 
 **Key components:**
 
 | Component | Path | Description |
 |---|---|---|
-| FastAPI app | `src/server/app.py` | ASGI entry point, mounts MCP + auth middleware |
-| MCP tools | `src/server/tools/` | Tool implementations (products, docs, partners, etc.) |
+| FastAPI app | `src/server/app.py` | ASGI entry point, mounts MCP + auth middleware + knowledge routes |
+| MCP tools | `src/server/tools/` | Tool implementations (products, docs, partners, knowledge, etc.) |
 | Services | `src/server/services/` | MetaKocka API wrappers |
 | Auth middleware | `src/server/auth.py` | Auth0 JWT validation (RS256, JWKS) |
 | RBAC | `src/server/permissions.py` | Per-tool permission checks via `ContextVar` |
-| Admin routes | `src/server/routes/admin.py` | Admin-only HTTP endpoints |
+| Admin routes | `src/server/routes/admin.py` | Product reindex endpoint |
 | Vector store | `src/vectorstore/` | ChromaDB + OpenAI embeddings for product search |
 | Ingestion | `src/ingestion/` | Product and email data loading, cleaning, formatting |
-| Config | `src/config.py` | Environment variable loading |
+| Knowledge pipeline | `app/pipeline/` | Parse → chunk → enrich → embed pipeline for company docs |
+| Knowledge search | `app/search/` | BM25, hybrid RRF fusion, cross-encoder reranker |
+| Knowledge routes | `app/routes/` | Admin API for uploading/indexing/managing knowledge sources |
+| Config | `src/config.py`, `app/config.py` | Environment variable loading |
 
 ---
 
@@ -41,12 +46,12 @@ All tools are exposed over MCP (SSE transport) at `/mcp`. Each tool requires a s
 | Tool | Permission | Description |
 |---|---|---|
 | `identify_product` | `products:read` | Semantic vector search by name/description → returns SKU, EAN, similarity score |
-| `get_product_price` | `products:read` | Price by SKU from MetaKocka pricelists (net, VAT, gross) |
+| `get_product_price` | `products:read` | Price by SKU — default pricelist only; add `products:pricelists:read` to request any pricelist |
 | `get_product_stock` | `warehouse:read` | Stock level for a single product in the configured warehouse |
 | `get_product_url` | `products:read` | Webshop URL for a product SKU |
 | `get_product_variants` | `products:read` | All published variants of a product (sizes, colours, etc.) |
-| `get_product_pricelists` | `products:read` | All pricelists for a product SKU |
-| `list_pricelists` | `products:read` | All available pricelists |
+| `get_product_pricelists` | `products:pricelists:read` | All pricelists for a product SKU |
+| `list_pricelists` | `products:pricelists:read` | All available pricelists |
 
 ### Documents
 
@@ -65,7 +70,6 @@ Supported `doc_type` values: `sales_order`, `sales_offer`, `sales_bill_domestic`
 | Tool | Permission | Description |
 |---|---|---|
 | `get_partner_tool` | `partners:read` | Search partners by name, email, tax number, phone, or internal ID |
-| `search_blacklist_partner_tool` | `partners:blacklist:read` | Check if a partner is on the company blacklist |
 
 ### Warehouse
 
@@ -78,8 +82,88 @@ Supported `doc_type` values: `sales_order`, `sales_offer`, `sales_bill_domestic`
 
 | Tool | Permission | Description |
 |---|---|---|
-| `search_tracking_code_tool` | `delivery:tracking:read` | Find a sales order by carrier tracking code or sticker barcode |
 | `get_delivery_service_pricelists_tool` | `delivery:pricelists:read` | All delivery service price lists with weight tiers and costs |
+
+### Company Knowledge Base
+
+| Tool | Permission | Description |
+|---|---|---|
+| `company_knowledge` | `knowledge:read` | Semantic search over indexed company documents (files, URLs, sitemaps) — hybrid dense + BM25 + reranking |
+
+---
+
+## Company Knowledge Base
+
+The knowledge base ingests files, web pages, and sitemaps into a RAG pipeline and exposes them via the `company_knowledge` MCP tool.
+
+### Indexing Pipeline
+
+```
+Source (file / URL / sitemap)
+  └─► [1. Parse]          — unstructured (PDF/DOCX/XLSX), trafilatura (web)
+  └─► [2. Chunk]          — parent (~800 tokens) + child (~200 tokens) splits
+  └─► [3. Enrich]         — Claude Haiku prepends context to each child chunk
+  └─► [4. Embed]          — OpenAI text-embedding-3-large (3072 dims)
+  └─► [5a. ChromaDB]      — dense vectors (cosine similarity)
+  └─► [5b. BM25 index]    — keyword index (rank_bm25, serialized to disk)
+  └─► [MongoDB]           — source metadata, hashes, chunk IDs, parent chunk map
+```
+
+### Retrieval Pipeline
+
+```
+Query
+  └─► Embed (text-embedding-3-large)
+  └─► Dense search (ChromaDB, top-20)  ┐
+  └─► BM25 keyword search (top-20)     ├─► RRF fusion → top-30
+                                       ┘
+  └─► Cross-encoder reranker (MiniLM, top-5)
+  └─► Parent chunk expansion (fetch richer context from MongoDB)
+  └─► Return passages + source attribution
+```
+
+### Admin API
+
+All admin endpoints require `x-api-key` header (set `ADMIN_API_KEY` in `.env`).
+
+| Endpoint | Description |
+|---|---|
+| `POST /admin/upload-file` | Upload PDF, DOCX, XLSX, TXT, CSV, HTML, MD |
+| `POST /admin/add-url` | Index a single URL |
+| `POST /admin/add-urls-bulk` | Index multiple URLs at once |
+| `POST /admin/upload-sitemap` | Upload sitemap.xml → crawl and index all URLs |
+| `POST /admin/reindex-company-data` | Re-crawl and re-index all sources (hash-based, skips unchanged) |
+| `GET /admin/sources` | List all sources (filter by `type`, `status`; paginated) |
+| `GET /admin/source/:id` | Source details |
+| `DELETE /admin/source/:id` | Remove source + purge vectors |
+| `POST /admin/source/:id/reindex` | Force reindex a single source |
+| `GET /admin/stats` | Knowledge base overview (source counts, chunk counts) |
+| `POST /admin/search-test` | Test the full retrieval pipeline with a query |
+
+**Quick start — add your first sources:**
+```bash
+# Upload a PDF
+curl -X POST https://<host>/admin/upload-file \
+  -H "x-api-key: YOUR_KEY" \
+  -F "file=@handbook.pdf" -F "label=Company Handbook"
+
+# Index a web page
+curl -X POST https://<host>/admin/add-url \
+  -H "x-api-key: YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://your-site.com/about", "label": "About page"}'
+
+# Upload site sitemap
+curl -X POST https://<host>/admin/upload-sitemap \
+  -H "x-api-key: YOUR_KEY" \
+  -F "file=@sitemap.xml" -F "base_label=your-site.com"
+
+# Test retrieval
+curl -X POST https://<host>/admin/search-test \
+  -H "x-api-key: YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "what services do you offer", "show_scores": true}'
+```
 
 ---
 
@@ -98,6 +182,21 @@ Every request to `/mcp/*` must carry a valid Auth0 JWT in the `Authorization: Be
 
 See [docs/auth.md](docs/auth.md) for the step-by-step flow and [docs/auth_end_to_end.md](docs/auth_end_to_end.md) for the full client+server walkthrough.
 
+### Auth0 Permissions Setup
+
+Create the following permissions on your Auth0 API (Dashboard → **Applications → APIs → your API → Permissions tab**). The API identifier must match `AUTH0_MCP_AUDIENCE`.
+
+| Permission | Description |
+|---|---|
+| `products:read` | Read product catalog — search products, view webshop URLs, variants, and pricing from the **default pricelist only** |
+| `products:pricelists:read` | Access all pricelists — list available pricelists, view all pricelist prices for a product, and request pricing from any non-default pricelist via `get_product_price`. Requires `products:read` as a prerequisite. |
+| `warehouse:read` | Read warehouse data — list warehouses and query stock levels across all or specific warehouses |
+| `documents:read` | Read ERP documents — search and retrieve sales orders, invoices, purchase orders, warehouse documents, and their attachments |
+| `partners:read` | Read partner/customer data — look up partners by name, email, tax number, phone, or internal ID |
+| `delivery:pricelists:read` | Read delivery service pricing — view all delivery service price lists with weight tiers and costs |
+| `knowledge:read` | Query the company knowledge base — semantic search over indexed company documents, files, and web pages |
+| `admin:all` | Full administrative access — bypasses all per-tool permission checks; intended for service accounts and admins only |
+
 ### Roles
 
 | Role | Key Permissions |
@@ -109,39 +208,9 @@ See [docs/auth.md](docs/auth.md) for the step-by-step flow and [docs/auth_end_to
 | `manager` | Full operational access across all domains |
 | `admin` | `admin:all` — bypasses all permission checks |
 
+Add `knowledge:read` to any role that should be able to use the `company_knowledge` tool.
+
 See [docs/roles.md](docs/roles.md) for the full permission list per role.
-
----
-
-## Vector Store (Product Search)
-
-Product identification (`identify_product`) uses ChromaDB with OpenAI `text-embedding-3-large` embeddings.
-
-**Pipeline:**
-```
-MetaKocka Products API  →  loader  →  flattener  →  cleaner  →  formatter
-                                                                     └─► ChromaDB (upsert)
-```
-
-- `src/ingestion/sources/products/loader.py` — fetches products from the API
-- `src/ingestion/sources/products/flattener.py` — normalizes nested product data
-- `src/ingestion/sources/products/cleaner.py` — strips noise, normalizes text
-- `src/ingestion/sources/products/formatter.py` — creates embedding-optimized text
-- `src/ingestion/sources/products/hasher.py` — content hashing for incremental updates
-- `src/vectorstore/updater.py` — incremental upsert (only re-embeds changed products)
-- `src/vectorstore/generator.py` — standalone generation script
-- `src/vectorstore/manager.py` — initializes the store on server start; auto-indexes if empty
-
-**Regenerate the vector store manually:**
-```bash
-python scripts/generate_vectorstore.py
-```
-
-**Pricelist priority** (configured in `src/config.py`):
-```python
-PRICELISTS = ["RRP 2026", "RRP 2025"]
-```
-`get_product_price` returns the price from the first pricelist that has an entry for the SKU.
 
 ---
 
@@ -150,9 +219,11 @@ PRICELISTS = ["RRP 2026", "RRP 2025"]
 ### Prerequisites
 
 - Python 3.11+
-- OpenAI API key (for embeddings)
+- OpenAI API key (embeddings)
+- Anthropic API key (Claude Haiku for chunk enrichment)
 - Auth0 tenant with an API configured (see [docs/auth_setup_guide.md](docs/auth_setup_guide.md))
 - MetaKocka account with API access
+- MongoDB instance (for knowledge source tracking)
 
 ### Local Development
 
@@ -161,79 +232,93 @@ PRICELISTS = ["RRP 2026", "RRP 2025"]
 python -m venv venv
 source venv/bin/activate   # Windows: venv\Scripts\activate
 
-# 2. Install dependencies
-pip install -r requirements.txt
+# 2. Install dependencies (torch CPU-only index as primary)
+pip install \
+  --index-url https://download.pytorch.org/whl/cpu \
+  --extra-index-url https://pypi.org/simple \
+  -r requirements.txt
 
 # 3. Configure environment
 cp .env.example .env
 # Edit .env with your values
 
-# 4. Run the server
-python -m src.server.app
-# or
+# 4. Start ChromaDB (required for both products and knowledge base)
+docker run -d -p 8001:8000 \
+  -v ./chroma_db:/chroma/chroma \
+  -e IS_PERSISTENT=TRUE \
+  -e PERSIST_DIRECTORY=/chroma/chroma \
+  chromadb/chroma:0.6.3
+
+# 5. Run the server
 uvicorn src.server.app:api --host 0.0.0.0 --port 8000 --reload
 ```
 
 Server endpoints:
 - `GET /` — service info
-- `GET /health` — health check + vectorstore status
-- `/mcp` — MCP SSE endpoint (requires auth)
+- `GET /health` — health check
+- `/mcp` — MCP SSE endpoint (requires Auth0 JWT)
+- `/admin/*` — knowledge base admin (requires `x-api-key`)
 
 ---
 
 ## Environment Variables
 
-Copy `.env.example` to `.env` and fill in your values.
-
 | Variable | Required | Description |
 |---|---|---|
 | `OPENAI_API_KEY` | Yes | OpenAI key for `text-embedding-3-large` |
+| `ANTHROPIC_API_KEY` | Yes | Anthropic key for Claude Haiku chunk enrichment |
 | `AUTH0_DOMAIN` | Yes | Auth0 tenant domain, e.g. `dev-xxx.eu.auth0.com` |
-| `AUTH0_MCP_AUDIENCE` | Yes | Auth0 API audience, e.g. `https://api.your-company.com` |
+| `AUTH0_MCP_AUDIENCE` | Yes | Auth0 API audience |
 | `MK_SECRET_KEY` | Yes | MetaKocka API secret key |
 | `MK_COMPANY_ID` | Yes | MetaKocka company ID |
 | `MK_BASE_URL` | Yes | MetaKocka REST API base URL |
 | `MK_WAREHOUSE_ID` | Yes | Default warehouse ID for stock queries |
 | `PRODUCTS_API_URL` | Yes | Products export endpoint |
-| `API_KEY` | Optional | Static API key for service-to-service access (grants full access) |
+| `MONGO_URI` | Yes | MongoDB connection string (knowledge source tracking) |
+| `MONGO_DB_NAME` | Yes | MongoDB database name (default: `t4a`) |
+| `CHROMA_HOST` | Yes | ChromaDB service hostname (default: `chromadb`) |
+| `CHROMA_PORT` | Yes | ChromaDB service port (default: `8000`) |
+| `ADMIN_API_KEY` | Yes | `x-api-key` for all `/admin/*` endpoints |
+| `API_KEY` | Optional | Static key for service-to-service MCP access (grants `admin:all`) |
 | `GMAIL_EMAIL` | Optional | Gmail address for email ingestion |
 | `GMAIL_APP_PASSWORD` | Optional | Gmail app password for IMAP |
-| `GMAIL_IMAP_SERVER` | Optional | Defaults to `imap.gmail.com` |
-| `GMAIL_IMAP_PORT` | Optional | Defaults to `993` |
+| `ENRICH_MODEL` | Optional | Claude model for enrichment (default: `claude-haiku-4-5-20251001`) |
+| `PARENT_CHUNK_SIZE` | Optional | Parent chunk size in chars (default: `800`) |
+| `CHILD_CHUNK_SIZE` | Optional | Child chunk size in chars (default: `200`) |
+| `TOP_K_RERANK` | Optional | Final results returned after reranking (default: `5`) |
 
 ---
 
 ## Docker
 
-**Run from Docker Hub (production):**
+**Production (pull from Docker Hub):**
 ```bash
 cp .env.example .env   # fill in values
-docker-compose up -d
+docker compose up -d
 ```
 
-**Build locally:**
+**Build and push a new image locally:**
 ```bash
-# Windows
-scripts\build.bat
-
-# Linux/Mac
-bash scripts/build.sh
-
-# Manual
 docker build -t etiamsi/t4a-mcp:latest .
+docker push etiamsi/t4a-mcp:latest
+```
+
+**On the server — update to latest:**
+```bash
+docker compose pull && docker compose up -d
+docker logs -f t4a-mcp
 ```
 
 **Useful commands:**
 ```bash
-docker-compose logs -f t4a-mcp    # live logs
-docker-compose up -d --build      # rebuild and restart
-docker-compose down               # stop
-curl http://localhost:8000/health  # verify
+docker compose logs -f t4a-mcp       # live app logs
+docker compose logs -f t4a-chromadb  # ChromaDB logs
+docker compose down                   # stop all
+curl http://localhost:8000/health     # verify app
+curl http://localhost:8001/api/v1/heartbeat  # verify ChromaDB
 ```
 
-ChromaDB is persisted via a volume mount (`./chroma_db:/app/chroma_db`). The vector store is rebuilt automatically on first start if the collection is empty.
-
-See [docs/docker.md](docs/docker.md) for full deployment details, resource limits, and troubleshooting.
+ChromaDB data is persisted via `./chroma_db` (mounted into both the app and ChromaDB containers). Products are re-indexed automatically on first start if the collection is empty (~2–5 min).
 
 ---
 
@@ -246,76 +331,75 @@ See [docs/docker.md](docs/docker.md) for full deployment details, resource limit
 ├── docker-compose.yml
 ├── nginx.conf
 ├── requirements.txt
-├── .env.example
 │
-├── src/
-│   ├── config.py                          # env var loading
-│   ├── PROMPT.md                          # system prompt for AI client
+├── src/                               # MCP server + ERP tools
+│   ├── config.py                      # env var loading
+│   ├── PROMPT.md                      # system prompt for AI client
 │   ├── server/
-│   │   ├── app.py                         # FastAPI + MCP app, auth middleware
-│   │   ├── auth.py                        # Auth0 JWT validation
-│   │   ├── permissions.py                 # RBAC, ContextVar user storage
+│   │   ├── app.py                     # FastAPI + MCP app, auth middleware
+│   │   ├── auth.py                    # Auth0 JWT validation
+│   │   ├── permissions.py             # RBAC, ContextVar user storage
 │   │   ├── routes/
-│   │   │   └── admin.py                   # Admin HTTP endpoints
-│   │   ├── services/                      # MetaKocka API wrappers
-│   │   │   ├── delivery_service.py
-│   │   │   ├── document_get_service.py
-│   │   │   ├── document_service.py
-│   │   │   ├── partner_service.py
-│   │   │   ├── product_service.py
-│   │   │   └── warehouse_service.py
-│   │   └── tools/                         # MCP tool definitions
-│   │       ├── delivery.py
-│   │       ├── document_attachments.py
-│   │       ├── document_get.py
-│   │       ├── document_search.py
-│   │       ├── document_url.py
-│   │       ├── partner.py
-│   │       ├── product_price.py
-│   │       ├── product_pricelists.py
+│   │   │   └── admin.py               # Product reindex endpoint
+│   │   ├── services/                  # MetaKocka API wrappers
+│   │   └── tools/                     # MCP tool definitions
+│   │       ├── company_knowledge.py   # Knowledge base MCP tool
 │   │       ├── product_search.py
-│   │       ├── product_stock.py
-│   │       ├── product_url.py
-│   │       ├── product_variants.py
-│   │       └── warehouse.py
-│   ├── vectorstore/
-│   │   ├── generator.py                   # standalone vectorstore generation
-│   │   ├── manager.py                     # init + auto-index on startup
-│   │   └── updater.py                     # incremental upsert
+│   │       └── ...
+│   ├── vectorstore/                   # Product search (ChromaDB)
+│   │   ├── manager.py                 # init + auto-index on startup
+│   │   ├── updater.py                 # incremental upsert
+│   │   └── generator.py              # standalone generation script
 │   └── ingestion/
 │       └── sources/
-│           ├── products/                  # product ingestion pipeline
-│           │   ├── cleaner.py
-│           │   ├── flattener.py
-│           │   ├── formatter.py
-│           │   ├── hasher.py
-│           │   └── loader.py
-│           └── emails/                    # email ingestion pipeline
-│               ├── cleaner.py
-│               ├── formatter.py
-│               └── loader.py
+│           ├── products/              # product ingestion pipeline
+│           └── emails/                # email ingestion pipeline
+│
+├── app/                               # Company knowledge base
+│   ├── config.py                      # Knowledge API settings
+│   ├── auth.py                        # x-api-key dependency
+│   ├── retrieval.py                   # Full retrieval chain
+│   ├── db/
+│   │   └── mongo.py                   # Motor async MongoDB client
+│   ├── vector/
+│   │   └── chroma.py                  # ChromaDB HTTP client helpers
+│   ├── search/
+│   │   ├── bm25.py                    # BM25 index (rank_bm25)
+│   │   ├── hybrid.py                  # RRF fusion
+│   │   └── reranker.py                # Cross-encoder (MiniLM)
+│   ├── pipeline/
+│   │   ├── parser.py                  # File + URL → text
+│   │   ├── chunker.py                 # Parent-child splitting
+│   │   ├── enricher.py                # Claude contextual enrichment
+│   │   ├── embedder.py                # OpenAI embeddings
+│   │   └── ingester.py                # Orchestration
+│   └── routes/                        # Admin HTTP endpoints
+│       ├── upload_file.py
+│       ├── add_url.py
+│       ├── add_urls_bulk.py
+│       ├── upload_sitemap.py
+│       ├── reindex.py
+│       ├── sources.py
+│       └── search_test.py
+│
+├── chroma_db/                         # ChromaDB persisted data (gitignored)
+├── uploads/                           # Uploaded files (gitignored)
+├── bm25_indexes/                      # BM25 index files (gitignored)
 │
 ├── scripts/
-│   ├── generate_vectorstore.py            # regenerate ChromaDB from scratch
-│   ├── generate_pdf.py                    # utility script
-│   ├── build.sh / build.bat               # Docker build scripts
-│   └── push.sh / push.bat                 # Docker push scripts
+│   └── generate_pdf.py
 │
-├── chroma_db/                             # ChromaDB persisted data (gitignored)
-│
-├── tests/                                 # test suite
+├── tests/
 │
 └── docs/
-    ├── auth.md                            # Auth0 JWT flow (server side)
-    ├── auth_end_to_end.md                 # Full client + server auth walkthrough
-    ├── auth_setup_guide.md                # Auth0 dashboard setup guide
-    ├── docker.md                          # Docker deployment guide
-    ├── tools_reference.md                 # Full tool reference with all parameters
-    ├── tools_permissions.md               # Tool → permission → role matrix
-    ├── roles.md                           # Full permission list per role
-    ├── features_roadmap.md                # Implemented features + planned work
-    ├── metakocka_links.md                 # MetaKocka UI deep links reference
-    └── metakocka/                         # MetaKocka API documentation
+    ├── auth.md
+    ├── auth_end_to_end.md
+    ├── auth_setup_guide.md
+    ├── docker.md
+    ├── tools_reference.md
+    ├── tools_permissions.md
+    ├── roles.md
+    └── features_roadmap.md
 ```
 
 ---
@@ -332,7 +416,7 @@ Auth:         Authorization: Bearer <Auth0 JWT>
 
 The client must obtain an Auth0 Access Token with `audience` set to `AUTH0_MCP_AUDIENCE`. See [docs/auth_end_to_end.md](docs/auth_end_to_end.md) for a complete Next.js + Claude implementation example.
 
-Available tools are automatically filtered to what the authenticated user's role permits.
+Available tools are automatically filtered to what the authenticated user's role permits. Grant `knowledge:read` to any role that should have access to the company knowledge base.
 
 ---
 

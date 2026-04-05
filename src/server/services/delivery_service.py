@@ -3,6 +3,9 @@ from pydantic import BaseModel, Field
 
 from src.config import MK_SECRET_KEY, MK_COMPANY_ID, MK_BASE_URL
 
+_session = requests.Session()
+_MK_TIMEOUT = 15  # seconds
+
 
 class TrackingResult(BaseModel):
     mk_id: str = Field(description="MetaKocka document ID of the matched sales order.")
@@ -27,7 +30,11 @@ def search_tracking_code(
         payload["sticker_code"] = sticker_code
 
     try:
-        response = requests.post(f"{MK_BASE_URL}/search_tracking_code", json=payload)
+        response = _session.post(
+            f"{MK_BASE_URL}/search_tracking_code",
+            json=payload,
+            timeout=_MK_TIMEOUT,
+        )
         response.raise_for_status()
     except Exception as e:
         return TrackingError(error=str(e))
@@ -58,7 +65,11 @@ def get_delivery_service_pricelists() -> PricelistResult | PricelistError:
     payload = {"secret_key": MK_SECRET_KEY, "company_id": MK_COMPANY_ID}
 
     try:
-        response = requests.post(f"{MK_BASE_URL}/get_delivery_service_pricelist", json=payload)
+        response = _session.post(
+            f"{MK_BASE_URL}/get_delivery_service_pricelist",
+            json=payload,
+            timeout=_MK_TIMEOUT,
+        )
         response.raise_for_status()
     except Exception as e:
         return PricelistError(error=str(e))

@@ -1,5 +1,6 @@
 """Tool-level RBAC: permission map, context variable, and guard helper."""
 
+import asyncio
 import contextvars
 import functools
 
@@ -9,8 +10,8 @@ TOOL_PERMISSIONS: dict[str, list[str]] = {
     # Products
     "identify_product":                    ["products:read"],
     "get_product_price":                   ["products:read"],
-    "get_product_pricelists":              ["products:read"],
-    "list_pricelists":                     ["products:read"],
+    "get_product_pricelists":              ["products:pricelists:read"],
+    "list_pricelists":                     ["products:pricelists:read"],
     "get_product_stock":                   ["warehouse:read"],
     "get_product_url":                     ["products:read"],
     "get_product_variants":                ["products:read"],
@@ -25,7 +26,16 @@ TOOL_PERMISSIONS: dict[str, list[str]] = {
     # Warehouse
     "get_warehouse_list":                  ["warehouse:read"],
     "get_warehouse_stock":                 ["warehouse:read"],
+    # Knowledge base
+    "company_knowledge":                   ["knowledge:read"],
 }
+
+
+def get_current_permissions() -> list[str]:
+    user = _user_ctx.get()
+    if user is None:
+        return []
+    return user.get("permissions", [])
 
 
 def has_permission(user_permissions: list[str], required: list[str]) -> bool:
@@ -50,33 +60,38 @@ def require_permission(tool_name: str) -> None:
         )
 
 
+def _build_permission_error(e: PermissionError) -> dict:
+    msg = str(e)
+    response: dict = {"error": "permission_denied", "message": msg}
+    if "requires permissions:" in msg:
+        _, perms_part = msg.split("requires permissions:", 1)
+        required_perms = perms_part.strip()
+        response["required_permissions"] = required_perms
+        response["hint"] = (
+            f"Your account is missing the '{required_perms}' permission. "
+            "Ask your administrator to grant you access in Auth0."
+        )
+    return response
+
+
 def with_permission_check(fn):
     """Decorator that catches PermissionError and returns a structured error dict.
 
-    Wraps a tool function so that permission failures produce a clear, readable
-    response for the LLM instead of a raw exception/error.
+    Supports both sync and async tool functions.
     """
+    if asyncio.iscoroutinefunction(fn):
+        @functools.wraps(fn)
+        async def async_wrapper(*args, **kwargs):
+            try:
+                return await fn(*args, **kwargs)
+            except PermissionError as e:
+                return _build_permission_error(e)
+        return async_wrapper
+
     @functools.wraps(fn)
-    def wrapper(*args, **kwargs):
+    def sync_wrapper(*args, **kwargs):
         try:
             return fn(*args, **kwargs)
         except PermissionError as e:
-            msg = str(e)
-            # Extract required permissions from the error message for a helpful hint
-            if "requires permissions:" in msg:
-                _, perms_part = msg.split("requires permissions:", 1)
-                required_perms = perms_part.strip()
-            else:
-                required_perms = None
-            response = {
-                "error": "permission_denied",
-                "message": msg,
-            }
-            if required_perms:
-                response["required_permissions"] = required_perms
-                response["hint"] = (
-                    f"Your account is missing the '{required_perms}' permission. "
-                    "Ask your administrator to grant you access in Auth0."
-                )
-            return response
-    return wrapper
+            return _build_permission_error(e)
+    return sync_wrapper

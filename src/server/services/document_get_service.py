@@ -3,6 +3,9 @@ from pydantic import BaseModel, Field
 
 from src.config import MK_SECRET_KEY, MK_COMPANY_ID, MK_BASE_URL
 
+_session = requests.Session()
+_MK_TIMEOUT = 15  # seconds
+
 
 class DocumentResult(BaseModel):
     document: dict = Field(description="Document data returned by MetaKocka.")
@@ -62,7 +65,7 @@ def get_document(
         payload.update(extra_params)
 
     try:
-        response = requests.post(f"{MK_BASE_URL}/get_document", json=payload)
+        response = _session.post(f"{MK_BASE_URL}/get_document", json=payload, timeout=_MK_TIMEOUT)
         response.raise_for_status()
     except Exception as e:
         return DocumentError(error=str(e))
@@ -108,7 +111,11 @@ def get_invoice_attachments(
         payload["doc_count_code"] = doc_count_code
 
     try:
-        response = requests.post(f"{MK_BASE_URL}/get_document", json=payload)
+        response = _session.post(
+            f"{MK_BASE_URL}/get_document",
+            json=payload,
+            timeout=_MK_TIMEOUT,
+        )
         response.raise_for_status()
     except Exception as e:
         return InvoiceAttachmentsError(error=str(e))

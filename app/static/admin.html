@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>T4A Knowledge Admin</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, sans-serif; background: #f0f2f5; color: #1a1a2e; font-size: 14px; }
+  header { background: #1a1a2e; color: #fff; padding: 14px 24px; display: flex; align-items: center; gap: 16px; }
+  header h1 { font-size: 18px; font-weight: 600; }
+  #apiKeyWrap { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  #apiKeyWrap label { font-size: 12px; opacity: 0.7; }
+  #apiKeyInput { padding: 5px 10px; border-radius: 6px; border: none; font-size: 13px; width: 240px; }
+  #apiKeySave { padding: 5px 12px; background: #4f8ef7; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  #apiKeySave:hover { background: #3a7de0; }
+
+  .main { display: grid; grid-template-columns: 200px 1fr; min-height: calc(100vh - 50px); }
+  nav { background: #fff; border-right: 1px solid #e0e0e8; padding: 16px 0; }
+  nav button { display: block; width: 100%; text-align: left; padding: 10px 20px; border: none; background: none; cursor: pointer; font-size: 13px; color: #444; transition: background 0.15s; }
+  nav button:hover { background: #f0f2f5; }
+  nav button.active { background: #e8f0fe; color: #1a73e8; font-weight: 600; border-right: 3px solid #1a73e8; }
+  nav .nav-section { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #999; padding: 14px 20px 4px; }
+
+  .content { padding: 24px; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  h2 { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+  .card { background: #fff; border-radius: 10px; padding: 20px; margin-bottom: 20px; border: 1px solid #e0e0e8; }
+
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; margin-bottom: 20px; }
+  .stat-box { background: #fff; border-radius: 10px; padding: 16px; border: 1px solid #e0e0e8; text-align: center; }
+  .stat-box .val { font-size: 28px; font-weight: 700; color: #1a73e8; }
+  .stat-box .lbl { font-size: 11px; color: #888; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+  label { display: block; font-size: 12px; font-weight: 500; color: #555; margin-bottom: 4px; margin-top: 12px; }
+  label:first-child { margin-top: 0; }
+  input[type=text], input[type=url], input[type=number], textarea, select {
+    width: 100%; padding: 8px 12px; border: 1px solid #d0d0dc; border-radius: 7px; font-size: 13px; color: #1a1a2e;
+    background: #fafafa; transition: border 0.15s;
+  }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: #1a73e8; background: #fff; }
+  textarea { resize: vertical; min-height: 80px; }
+  input[type=file] { padding: 6px; background: #fafafa; border: 1px solid #d0d0dc; border-radius: 7px; width: 100%; }
+  input[type=checkbox] { width: auto; margin-right: 6px; }
+  .checkbox-label { display: flex; align-items: center; font-size: 13px; color: #333; margin-top: 10px; }
+
+  .btn { padding: 9px 20px; border: none; border-radius: 7px; cursor: pointer; font-size: 13px; font-weight: 500; transition: background 0.15s; }
+  .btn-primary { background: #1a73e8; color: #fff; }
+  .btn-primary:hover { background: #1557b0; }
+  .btn-primary:disabled { background: #aac4f0; cursor: default; }
+  .btn-danger { background: #e53935; color: #fff; }
+  .btn-danger:hover { background: #b71c1c; }
+  .btn-warning { background: #f57c00; color: #fff; }
+  .btn-warning:hover { background: #e65100; }
+  .btn-sm { padding: 4px 10px; font-size: 12px; }
+  .btn-row { margin-top: 16px; display: flex; gap: 10px; align-items: center; }
+
+  .result { margin-top: 14px; padding: 12px 16px; border-radius: 8px; font-size: 12px; font-family: monospace; white-space: pre-wrap; word-break: break-all; max-height: 320px; overflow-y: auto; }
+  .result.ok { background: #e8f5e9; border: 1px solid #a5d6a7; color: #1b5e20; }
+  .result.err { background: #ffebee; border: 1px solid #ef9a9a; color: #b71c1c; }
+  .result.info { background: #e3f2fd; border: 1px solid #90caf9; color: #0d47a1; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 8px 12px; border-bottom: 2px solid #e0e0e8; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #888; }
+  td { padding: 9px 12px; border-bottom: 1px solid #f0f0f4; vertical-align: top; }
+  tr:hover td { background: #f8f9ff; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; }
+  .badge-indexed { background: #e8f5e9; color: #2e7d32; }
+  .badge-error { background: #ffebee; color: #c62828; }
+  .badge-pending { background: #fff8e1; color: #f57f17; }
+  .badge-skipped { background: #f3e5f5; color: #6a1b9a; }
+  .badge-file { background: #e3f2fd; color: #1565c0; }
+  .badge-url { background: #e8f5e9; color: #2e7d32; }
+  .badge-sitemap_root { background: #fce4ec; color: #880e4f; }
+  .badge-sitemap_child { background: #fce4ec; color: #880e4f; }
+
+  .pagination { display: flex; gap: 8px; align-items: center; margin-top: 14px; font-size: 13px; }
+  .pagination button { padding: 4px 12px; border: 1px solid #d0d0dc; border-radius: 6px; background: #fff; cursor: pointer; }
+  .pagination button:disabled { opacity: 0.4; cursor: default; }
+  .pagination .page-info { color: #666; }
+
+  .filter-row { display: flex; gap: 12px; margin-bottom: 16px; align-items: flex-end; }
+  .filter-row > div { flex: 1; }
+  .filter-row .btn { margin-bottom: 0; align-self: flex-end; }
+
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #ccc; border-top-color: #1a73e8; border-radius: 50%; animation: spin 0.7s linear infinite; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading { display: flex; align-items: center; color: #666; font-size: 13px; padding: 12px 0; }
+
+  .source-label { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .source-url { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: #888; }
+  a { color: #1a73e8; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .action-btns { display: flex; gap: 6px; white-space: nowrap; }
+
+  .search-result-item { padding: 12px; border: 1px solid #e0e0e8; border-radius: 8px; margin-bottom: 10px; }
+  .search-result-item .rank { font-weight: 700; color: #1a73e8; font-size: 12px; }
+  .search-result-item .source { font-size: 12px; color: #888; margin-bottom: 6px; }
+  .search-result-item .text { font-size: 13px; line-height: 1.5; }
+
+  #toastContainer { position: fixed; bottom: 24px; right: 24px; display: flex; flex-direction: column; gap: 8px; z-index: 1000; }
+  .toast { padding: 10px 18px; border-radius: 8px; font-size: 13px; color: #fff; animation: fadeIn 0.2s; max-width: 320px; }
+  .toast.ok { background: #2e7d32; }
+  .toast.err { background: #c62828; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>T4A Knowledge Admin</h1>
+  <div id="apiKeyWrap">
+    <label for="apiKeyInput">API Key</label>
+    <input type="password" id="apiKeyInput" placeholder="x-api-key value">
+    <button id="apiKeySave" onclick="saveApiKey()">Save</button>
+  </div>
+</header>
+
+<div class="main">
+  <nav>
+    <div class="nav-section">Overview</div>
+    <button class="active" onclick="showPanel('stats')">Dashboard</button>
+    <div class="nav-section">Ingest</div>
+    <button onclick="showPanel('uploadFile')">Upload File</button>
+    <button onclick="showPanel('addUrl')">Add URL</button>
+    <button onclick="showPanel('bulkUrls')">Bulk URLs</button>
+    <button onclick="showPanel('uploadSitemap')">Upload Sitemap</button>
+    <div class="nav-section">Manage</div>
+    <button onclick="showPanel('sources')">Sources</button>
+    <button onclick="showPanel('reindex')">Reindex All</button>
+    <div class="nav-section">Test</div>
+    <button onclick="showPanel('searchTest')">Search Test</button>
+  </nav>
+
+  <div class="content">
+
+    <!-- DASHBOARD -->
+    <div id="panel-stats" class="panel active">
+      <h2>Dashboard</h2>
+      <div id="statsContent"><div class="loading"><span class="spinner"></span>Loading stats...</div></div>
+      <button class="btn btn-primary" onclick="loadStats()">Refresh</button>
+    </div>
+
+    <!-- UPLOAD FILE -->
+    <div id="panel-uploadFile" class="panel">
+      <h2>Upload File</h2>
+      <div class="card">
+        <label>File <small style="color:#999">(pdf, docx, xlsx, txt, csv, html, md)</small></label>
+        <input type="file" id="fileInput" accept=".pdf,.docx,.xlsx,.txt,.csv,.html,.md">
+        <label>Label <small style="color:#999">(optional)</small></label>
+        <input type="text" id="fileLabel" placeholder="Friendly name for this document">
+        <div class="btn-row">
+          <button class="btn btn-primary" id="uploadFileBtn" onclick="uploadFile()">Upload & Index</button>
+        </div>
+        <div id="uploadFileResult"></div>
+      </div>
+    </div>
+
+    <!-- ADD URL -->
+    <div id="panel-addUrl" class="panel">
+      <h2>Add URL</h2>
+      <div class="card">
+        <label>URL</label>
+        <input type="url" id="urlInput" placeholder="https://example.com/page">
+        <label>Label <small style="color:#999">(optional)</small></label>
+        <input type="text" id="urlLabel" placeholder="Friendly name">
+        <div class="btn-row">
+          <button class="btn btn-primary" id="addUrlBtn" onclick="addUrl()">Add & Index</button>
+        </div>
+        <div id="addUrlResult"></div>
+      </div>
+    </div>
+
+    <!-- BULK URLS -->
+    <div id="panel-bulkUrls" class="panel">
+      <h2>Bulk Add URLs</h2>
+      <div class="card">
+        <label>URLs <small style="color:#999">(one per line — optionally tab-separated as url[tab]label)</small></label>
+        <textarea id="bulkUrlsInput" rows="8" placeholder="https://example.com/page1&#10;https://example.com/page2	My Label&#10;https://example.com/page3"></textarea>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="bulkUrlBtn" onclick="addBulkUrls()">Add & Index All</button>
+        </div>
+        <div id="bulkUrlResult"></div>
+      </div>
+    </div>
+
+    <!-- UPLOAD SITEMAP -->
+    <div id="panel-uploadSitemap" class="panel">
+      <h2>Upload Sitemap</h2>
+      <div class="card">
+        <label>Sitemap XML file</label>
+        <input type="file" id="sitemapInput" accept=".xml">
+        <label>Base Label <small style="color:#999">(optional — defaults to filename)</small></label>
+        <input type="text" id="sitemapLabel" placeholder="My website sitemap">
+        <label class="checkbox-label">
+          <input type="checkbox" id="crawlNow" checked>
+          Crawl & index all URLs now
+        </label>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="uploadSitemapBtn" onclick="uploadSitemap()">Upload Sitemap</button>
+        </div>
+        <div id="uploadSitemapResult"></div>
+      </div>
+    </div>
+
+    <!-- SOURCES -->
+    <div id="panel-sources" class="panel">
+      <h2>Sources</h2>
+      <div class="card">
+        <div class="filter-row">
+          <div>
+            <label>Type</label>
+            <select id="filterType">
+              <option value="">All types</option>
+              <option value="file">file</option>
+              <option value="url">url</option>
+              <option value="sitemap_root">sitemap_root</option>
+              <option value="sitemap_child">sitemap_child</option>
+            </select>
+          </div>
+          <div>
+            <label>Status</label>
+            <select id="filterStatus">
+              <option value="">All statuses</option>
+              <option value="indexed">indexed</option>
+              <option value="pending">pending</option>
+              <option value="error">error</option>
+              <option value="skipped">skipped</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" onclick="loadSources(1)">Filter</button>
+        </div>
+        <div id="sourcesTableWrap"><div class="loading"><span class="spinner"></span>Loading sources...</div></div>
+        <div class="pagination" id="sourcesPagination"></div>
+      </div>
+    </div>
+
+    <!-- REINDEX ALL -->
+    <div id="panel-reindex" class="panel">
+      <h2>Reindex All</h2>
+      <div class="card">
+        <p style="color:#555;font-size:13px;line-height:1.6;">
+          This will reindex all files, URLs, and sitemap child pages. Sources that haven't changed (same content hash) will be skipped automatically.
+          This can take a while depending on the number of sources.
+        </p>
+        <div class="btn-row">
+          <button class="btn btn-warning" id="reindexBtn" onclick="reindexAll()">Start Reindex</button>
+        </div>
+        <div id="reindexResult"></div>
+      </div>
+    </div>
+
+    <!-- SEARCH TEST -->
+    <div id="panel-searchTest" class="panel">
+      <h2>Search Test</h2>
+      <div class="card">
+        <label>Query</label>
+        <input type="text" id="searchQuery" placeholder="Type a search query..." onkeydown="if(event.key==='Enter')searchTest()">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
+          <div>
+            <label>Top K results</label>
+            <input type="number" id="searchTopK" value="5" min="1" max="20">
+          </div>
+          <div style="display:flex;align-items:flex-end;">
+            <label class="checkbox-label" style="margin-top:0;padding-bottom:2px;">
+              <input type="checkbox" id="showScores">
+              Show rerank scores
+            </label>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="searchBtn" onclick="searchTest()">Search</button>
+        </div>
+        <div id="searchResult"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="toastContainer"></div>
+
+<script>
+// ── API Key ──────────────────────────────────────────────────
+let apiKey = localStorage.getItem('t4a_admin_key') || '';
+document.getElementById('apiKeyInput').value = apiKey;
+
+function saveApiKey() {
+  apiKey = document.getElementById('apiKeyInput').value.trim();
+  localStorage.setItem('t4a_admin_key', apiKey);
+  toast('API key saved', 'ok');
+}
+
+// ── Nav ──────────────────────────────────────────────────────
+function showPanel(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  const btns = document.querySelectorAll('nav button');
+  btns.forEach(b => { if (b.getAttribute('onclick') && b.getAttribute('onclick').includes("'" + name + "'")) b.classList.add('active'); });
+  if (name === 'stats') loadStats();
+  if (name === 'sources') loadSources(1);
+}
+
+// ── Fetch helper ─────────────────────────────────────────────
+async function apiFetch(path, options = {}) {
+  if (!apiKey) { toast('Set your API key first', 'err'); throw new Error('No API key'); }
+  const headers = { 'x-api-key': apiKey, ...options.headers };
+  const res = await fetch(path, { ...options, headers });
+  const data = await res.json().catch(() => ({ detail: res.statusText }));
+  if (!res.ok) throw Object.assign(new Error(data.detail || 'Request failed'), { data });
+  return data;
+}
+
+// ── Toast ────────────────────────────────────────────────────
+function toast(msg, type = 'ok') {
+  const c = document.getElementById('toastContainer');
+  const t = document.createElement('div');
+  t.className = 'toast ' + type;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+// ── Result display ───────────────────────────────────────────
+function showResult(elId, data, isError = false) {
+  const el = document.getElementById(elId);
+  el.className = 'result ' + (isError ? 'err' : 'ok');
+  el.textContent = JSON.stringify(data, null, 2);
+}
+
+function setLoading(btnId, loading) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  btn.disabled = loading;
+  btn.textContent = loading ? 'Working...' : btn.dataset.label || btn.textContent;
+}
+
+// ── Dashboard ────────────────────────────────────────────────
+async function loadStats() {
+  const el = document.getElementById('statsContent');
+  el.innerHTML = '<div class="loading"><span class="spinner"></span>Loading stats...</div>';
+  try {
+    const d = await apiFetch('/admin/stats');
+    const byType = d.sources.byType || {};
+    const byStatus = d.sources.byStatus || {};
+    const lastRI = d.lastReindex ? new Date(d.lastReindex).toLocaleString() : 'Never';
+
+    el.innerHTML = `
+      <div class="stats-grid">
+        <div class="stat-box"><div class="val">${d.sources.total}</div><div class="lbl">Total Sources</div></div>
+        <div class="stat-box"><div class="val">${byStatus.indexed || 0}</div><div class="lbl">Indexed</div></div>
+        <div class="stat-box"><div class="val">${byStatus.error || 0}</div><div class="lbl">Errors</div></div>
+        <div class="stat-box"><div class="val">${d.chunks.totalChildChunks}</div><div class="lbl">Child Chunks</div></div>
+        <div class="stat-box"><div class="val">${d.chunks.chromaDbCount}</div><div class="lbl">Chroma Vectors</div></div>
+      </div>
+      <div class="card" style="margin-bottom:12px">
+        <strong style="font-size:12px;text-transform:uppercase;letter-spacing:0.06em;color:#888">By Type</strong>
+        <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;">
+          ${Object.entries(byType).map(([k,v]) => `<span class="badge badge-${k}">${k}: ${v}</span>`).join('')}
+        </div>
+      </div>
+      <div class="card">
+        <strong style="font-size:12px;text-transform:uppercase;letter-spacing:0.06em;color:#888">By Status</strong>
+        <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;">
+          ${Object.entries(byStatus).map(([k,v]) => `<span class="badge badge-${k}">${k}: ${v}</span>`).join('')}
+        </div>
+        <div style="margin-top:12px;font-size:12px;color:#888">Last reindex: <strong>${lastRI}</strong></div>
+      </div>`;
+  } catch(e) {
+    el.innerHTML = `<div class="result err">Failed to load stats: ${e.message}</div>`;
+  }
+}
+
+// ── Upload File ──────────────────────────────────────────────
+async function uploadFile() {
+  const file = document.getElementById('fileInput').files[0];
+  if (!file) { toast('Select a file first', 'err'); return; }
+  const label = document.getElementById('fileLabel').value.trim();
+  const btn = document.getElementById('uploadFileBtn');
+  btn.disabled = true; btn.textContent = 'Uploading...';
+  const fd = new FormData();
+  fd.append('file', file);
+  if (label) fd.append('label', label);
+  try {
+    const data = await apiFetch('/admin/upload-file', { method: 'POST', body: fd });
+    showResult('uploadFileResult', data);
+    toast('File indexed successfully', 'ok');
+  } catch(e) {
+    showResult('uploadFileResult', e.data || { error: e.message }, true);
+    toast('Upload failed', 'err');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Upload & Index';
+  }
+}
+
+// ── Add URL ──────────────────────────────────────────────────
+async function addUrl() {
+  const url = document.getElementById('urlInput').value.trim();
+  const label = document.getElementById('urlLabel').value.trim();
+  if (!url) { toast('Enter a URL', 'err'); return; }
+  const btn = document.getElementById('addUrlBtn');
+  btn.disabled = true; btn.textContent = 'Indexing...';
+  try {
+    const data = await apiFetch('/admin/add-url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, label: label || null })
+    });
+    showResult('addUrlResult', data);
+    toast('URL indexed successfully', 'ok');
+  } catch(e) {
+    showResult('addUrlResult', e.data || { error: e.message }, true);
+    toast('Failed to add URL', 'err');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Add & Index';
+  }
+}
+
+// ── Bulk URLs ────────────────────────────────────────────────
+async function addBulkUrls() {
+  const raw = document.getElementById('bulkUrlsInput').value.trim();
+  if (!raw) { toast('Enter at least one URL', 'err'); return; }
+  const urls = raw.split('\n').map(l => l.trim()).filter(Boolean).map(line => {
+    const [url, label] = line.split('\t');
+    return { url: url.trim(), label: label ? label.trim() : null };
+  });
+  const btn = document.getElementById('bulkUrlBtn');
+  btn.disabled = true; btn.textContent = `Indexing ${urls.length} URLs...`;
+  try {
+    const data = await apiFetch('/admin/add-urls-bulk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ urls })
+    });
+    showResult('bulkUrlResult', data);
+    toast(`Done: ${data.indexed} indexed, ${data.skipped} skipped, ${data.failed} failed`, 'ok');
+  } catch(e) {
+    showResult('bulkUrlResult', e.data || { error: e.message }, true);
+    toast('Bulk add failed', 'err');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Add & Index All';
+  }
+}
+
+// ── Upload Sitemap ───────────────────────────────────────────
+async function uploadSitemap() {
+  const file = document.getElementById('sitemapInput').files[0];
+  if (!file) { toast('Select a sitemap XML file', 'err'); return; }
+  const label = document.getElementById('sitemapLabel').value.trim();
+  const crawlNow = document.getElementById('crawlNow').checked;
+  const btn = document.getElementById('uploadSitemapBtn');
+  btn.disabled = true; btn.textContent = crawlNow ? 'Crawling...' : 'Uploading...';
+  const fd = new FormData();
+  fd.append('file', file);
+  if (label) fd.append('base_label', label);
+  fd.append('crawl_now', crawlNow);
+  try {
+    const data = await apiFetch('/admin/upload-sitemap', { method: 'POST', body: fd });
+    showResult('uploadSitemapResult', data);
+    toast(`Sitemap done: ${data.indexed} indexed, ${data.skipped} skipped, ${data.failed} failed`, 'ok');
+  } catch(e) {
+    showResult('uploadSitemapResult', e.data || { error: e.message }, true);
+    toast('Sitemap upload failed', 'err');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Upload Sitemap';
+  }
+}
+
+// ── Sources ──────────────────────────────────────────────────
+let sourcesPage = 1;
+const sourcesPageSize = 20;
+
+async function loadSources(page = 1) {
+  sourcesPage = page;
+  const type = document.getElementById('filterType').value;
+  const status = document.getElementById('filterStatus').value;
+  const wrap = document.getElementById('sourcesTableWrap');
+  wrap.innerHTML = '<div class="loading"><span class="spinner"></span>Loading...</div>';
+
+  const params = new URLSearchParams({ page, limit: sourcesPageSize });
+  if (type) params.set('type', type);
+  if (status) params.set('status', status);
+
+  try {
+    const data = await apiFetch('/admin/sources?' + params);
+    const totalPages = Math.ceil(data.total / sourcesPageSize);
+
+    if (!data.sources.length) {
+      wrap.innerHTML = '<p style="color:#888;padding:12px 0;">No sources found.</p>';
+    } else {
+      wrap.innerHTML = `<table>
+        <thead><tr>
+          <th>Label</th><th>Type</th><th>Status</th><th>Chunks</th><th>Last Indexed</th><th>Actions</th>
+        </tr></thead>
+        <tbody>${data.sources.map(s => `
+          <tr>
+            <td>
+              <div class="source-label" title="${esc(s.label || '')}">${esc(s.label || s.id)}</div>
+              ${s.url ? `<div class="source-url"><a href="${esc(s.url)}" target="_blank">${esc(s.url)}</a></div>` : ''}
+              ${s.originalName ? `<div class="source-url">${esc(s.originalName)}</div>` : ''}
+            </td>
+            <td><span class="badge badge-${s.type}">${s.type}</span></td>
+            <td><span class="badge badge-${s.status}">${s.status}</span>${s.errorMessage ? `<div style="font-size:11px;color:#c62828;margin-top:3px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(s.errorMessage)}">${esc(s.errorMessage)}</div>` : ''}</td>
+            <td>${s.totalChunks || 0}</td>
+            <td style="font-size:11px;color:#888">${s.lastIndexed ? new Date(s.lastIndexed).toLocaleString() : '—'}</td>
+            <td>
+              <div class="action-btns">
+                <button class="btn btn-warning btn-sm" onclick="reindexSource('${s.id}', this)">Reindex</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteSource('${s.id}', this)">Delete</button>
+              </div>
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+    }
+
+    const pag = document.getElementById('sourcesPagination');
+    pag.innerHTML = `
+      <button onclick="loadSources(${page-1})" ${page <= 1 ? 'disabled' : ''}>&laquo; Prev</button>
+      <span class="page-info">Page ${page} of ${totalPages || 1} &nbsp;·&nbsp; ${data.total} total</span>
+      <button onclick="loadSources(${page+1})" ${page >= totalPages ? 'disabled' : ''}>Next &raquo;</button>`;
+  } catch(e) {
+    wrap.innerHTML = `<div class="result err">Failed to load sources: ${e.message}</div>`;
+  }
+}
+
+async function reindexSource(id, btn) {
+  if (!confirm('Reindex this source?')) return;
+  btn.disabled = true; btn.textContent = '...';
+  try {
+    await apiFetch(`/admin/source/${id}/reindex`, { method: 'POST' });
+    toast('Reindexed', 'ok');
+    loadSources(sourcesPage);
+  } catch(e) {
+    toast('Reindex failed: ' + e.message, 'err');
+    btn.disabled = false; btn.textContent = 'Reindex';
+  }
+}
+
+async function deleteSource(id, btn) {
+  if (!confirm('Delete this source and all its chunks? This cannot be undone.')) return;
+  btn.disabled = true; btn.textContent = '...';
+  try {
+    const d = await apiFetch(`/admin/source/${id}`, { method: 'DELETE' });
+    toast(`Deleted (${d.chunksRemoved} chunks removed)`, 'ok');
+    loadSources(sourcesPage);
+  } catch(e) {
+    toast('Delete failed: ' + e.message, 'err');
+    btn.disabled = false; btn.textContent = 'Delete';
+  }
+}
+
+// ── Reindex All ──────────────────────────────────────────────
+async function reindexAll() {
+  if (!confirm('Start full reindex? This may take a long time.')) return;
+  const btn = document.getElementById('reindexBtn');
+  btn.disabled = true; btn.textContent = 'Reindexing...';
+  const res = document.getElementById('reindexResult');
+  res.className = 'result info'; res.textContent = 'Running reindex, please wait...';
+  try {
+    const data = await apiFetch('/admin/reindex-company-data', { method: 'POST' });
+    showResult('reindexResult', data);
+    toast(`Reindex done: ${data.reindexed} reindexed, ${data.unchanged} unchanged, ${data.failed} failed`, 'ok');
+  } catch(e) {
+    showResult('reindexResult', e.data || { error: e.message }, true);
+    toast('Reindex failed', 'err');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Start Reindex';
+  }
+}
+
+// ── Search Test ──────────────────────────────────────────────
+async function searchTest() {
+  const query = document.getElementById('searchQuery').value.trim();
+  if (!query) { toast('Enter a query', 'err'); return; }
+  const top_k = parseInt(document.getElementById('searchTopK').value) || 5;
+  const show_scores = document.getElementById('showScores').checked;
+  const btn = document.getElementById('searchBtn');
+  btn.disabled = true; btn.textContent = 'Searching...';
+  const res = document.getElementById('searchResult');
+  res.className = 'result info'; res.textContent = 'Searching...';
+  try {
+    const data = await apiFetch('/admin/search-test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, top_k, show_scores })
+    });
+    if (!data.results.length) {
+      res.className = 'result info'; res.textContent = 'No results found.';
+    } else {
+      res.className = '';
+      res.innerHTML = data.results.map(r => `
+        <div class="search-result-item">
+          <div class="rank">#${r.rank}${r.rerank_score !== undefined ? ` · score: ${r.rerank_score}` : ''}</div>
+          <div class="source">${esc(r.source)}${r.url ? ` — <a href="${esc(r.url)}" target="_blank">${esc(r.url)}</a>` : ''}</div>
+          <div class="text">${esc(r.text_preview)}</div>
+        </div>`).join('');
+    }
+  } catch(e) {
+    showResult('searchResult', e.data || { error: e.message }, true);
+    toast('Search failed', 'err');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Search';
+  }
+}
+
+// ── Utils ────────────────────────────────────────────────────
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Init ─────────────────────────────────────────────────────
+loadStats();
+</script>
+</body>
+</html>
