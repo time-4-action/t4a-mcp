@@ -1,126 +1,108 @@
-# MCP Server Docker Deployment
+# Deployment
 
-Optimized Docker setup for fast builds and small image size.
+This guide covers running the T4A MCP Server in production with Docker.
 
-## Quick Start
+---
 
-### 1. Setup Environment Variables
+## Quick Start (Docker Compose)
 
 ```bash
-# Copy the example env file
-cp .env.example .env
-
-# Edit .env with your actual credentials
-# Make sure to set OPENAI_API_KEY and other required variables
+cp .env.example .env   # fill in values
+docker compose up -d
 ```
 
-### 2. Build the Image
+This starts two services:
+- **t4a-mcp** — the MCP server on port `8000`
+- **t4a-chromadb** — ChromaDB on port `8001`
 
-**Windows:**
-```bash
-build.bat
-```
+---
 
-**Linux/Mac:**
-```bash
-chmod +x build.sh
-./build.sh
-```
+## Docker Hub Image
 
-**Or manually:**
+The production image is published to Docker Hub as `etiamsi/t4a-mcp:latest`.
+
+### Build and Push a New Image
+
 ```bash
 docker build -t etiamsi/t4a-mcp:latest .
+docker push etiamsi/t4a-mcp:latest
 ```
 
-### 3. Run the Server
+### Update a Running Server
 
 ```bash
-docker-compose up -d
+docker compose pull && docker compose up -d
+docker logs -f t4a-mcp
 ```
 
-### 4. Verify It's Running
+---
+
+## Build Optimization
+
+The Dockerfile uses a multi-stage build:
+
+| Feature | Benefit |
+|---|---|
+| `python:3.11-slim` base | ~50 MB vs ~900 MB full image |
+| Multi-stage build | Build deps excluded from final image |
+| Layer caching | Requirements installed separately for fast rebuilds |
+| `--no-cache-dir` | No pip cache in image |
+| PyTorch CPU-only | Avoids pulling ~2 GB CUDA variant |
+
+Expected final image size: **~300-400 MB**.
+
+---
+
+## Useful Commands
 
 ```bash
-# Check health
+# Live logs
+docker compose logs -f t4a-mcp
+docker compose logs -f t4a-chromadb
+
+# Stop all services
+docker compose down
+
+# Verify app health
 curl http://localhost:8000/health
 
-# Check logs
-docker-compose logs -f
+# Verify ChromaDB
+curl http://localhost:8001/api/v1/heartbeat
 ```
 
-## Build Optimization Features
+---
 
-### Fast Build Speed
-- **Multi-stage build**: Separates build dependencies from runtime
-- **Layer caching**: Requirements installed separately for fast rebuilds
-- **BuildKit**: Modern build engine (enabled by default)
-- **.dockerignore**: Excludes unnecessary files from build context
+## Data Persistence
 
-### Small Image Size
-- **python:3.11-slim**: Minimal Python base (~50MB vs 900MB full image)
-- **No cache**: `--no-cache-dir` during pip install
-- **Single-stage runtime**: Only copies necessary artifacts
-- **Cleanup**: Removes build dependencies after use
+ChromaDB data is persisted via `./chroma_db` (mounted into both the app and ChromaDB containers).
 
-Expected final image size: **~300-400MB** (vs 1-2GB with full Python image)
+| Volume | Purpose |
+|---|---|
+| `./chroma_db` | ChromaDB vectors (products + knowledge) |
+| `./uploads` | Uploaded knowledge base files |
+| `./bm25_indexes` | Serialized BM25 keyword indexes |
 
-## Deployment Commands
+Products are re-indexed automatically on first start if the collection is empty (~2-5 min).
 
-```bash
-# Build
-docker-compose build
+---
 
-# Start in background
-docker-compose up -d
+## Health Checks
 
-# View logs
-docker-compose logs -f t4a-mcp
+Both services have Docker health checks configured:
 
-# Stop
-docker-compose down
+- **t4a-mcp:** `curl -f http://localhost:8000/health` (every 30s)
+- **chromadb:** `curl -f http://localhost:8000/api/v1/heartbeat` (every 10s)
 
-# Restart
-docker-compose restart
+The app container waits for ChromaDB to be healthy before starting (`depends_on: condition: service_healthy`).
 
-# Rebuild and restart
-docker-compose up -d --build
-```
+---
 
-## Server Endpoints
-
-- **Root**: http://localhost:8000/
-- **Health Check**: http://localhost:8000/health
-- **MCP Endpoint**: http://localhost:8000/mcp
-
-## Environment Variables
-
-Required environment variables (set in `.env`):
-
-| Variable | Description |
-|----------|-------------|
-| `OPENAI_API_KEY` | OpenAI API key for embeddings |
-| `MK_SECRET_KEY` | MK API secret key |
-| `MK_COMPANY_ID` | MK company ID |
-| `MK_BASE_URL` | MK API base URL |
-| `MK_WAREHOUSE_ID` | MK warehouse ID |
-| `PRODUCTS_API_URL` | Products API endpoint |
-
-## ChromaDB Persistence
-
-The ChromaDB vector store is included in the image by default.
-
-**To update ChromaDB externally**, uncomment the volume mount in `docker-compose.yml`:
-
-```yaml
-volumes:
-  - ./chroma_db:/app/chroma_db:ro
-```
-
-## Production Deployment
+## Production Considerations
 
 ### Resource Limits
 
-Adjust in `docker-compose.yml`:
+Add to `docker-compose.yml`:
+
 ```yaml
 deploy:
   resources:
@@ -131,59 +113,24 @@ deploy:
 
 ### Security
 
-- Runs as non-root user (uid 1000)
-- Secrets via environment variables (not baked in image)
-- Health checks enabled
-- Minimal attack surface
+- Secrets are passed via environment variables (not baked into the image)
+- Health checks are enabled
+- Runs with a minimal attack surface (`python:3.11-slim`)
+- Logs are capped at 10 MB / 3 files per service
 
 ### Scaling
 
-To run multiple instances:
 ```bash
-docker-compose up -d --scale t4a-mcp=3
+docker compose up -d --scale t4a-mcp=3
 ```
+
+---
 
 ## Troubleshooting
 
-### Build is slow
-- Check if BuildKit is enabled: `docker version | grep BuildKit`
-- Clear build cache: `docker builder prune`
-- Check `.dockerignore` excludes large files
-
-### Image is too large
-- Check what's in the image: `docker image inspect etiamsi/t4a-mcp:latest`
-- Look for large layers: `docker history etiamsi/t4a-mcp:latest`
-
-### Container won't start
-```bash
-# Check logs
-docker-compose logs t4a-mcp
-
-# Check environment variables
-docker-compose config
-
-# Test health endpoint
-curl http://localhost:8000/health
-```
-
-### ChromaDB not loading
-- Verify `chroma_db/` directory exists and has data
-- Check file permissions
-- Check logs for initialization errors
-
-## Development vs Production
-
-**Development** (with live reload):
-```bash
-docker run -it --rm \
-  -p 8000:8000 \
-  -v $(pwd)/mcp_server:/app/mcp_server \
-  --env-file .env \
-  etiamsi/t4a-mcp:latest \
-  uvicorn mcp_server.server:api --host 0.0.0.0 --reload
-```
-
-**Production** (use docker-compose):
-```bash
-docker-compose up -d
-```
+| Symptom | Check |
+|---|---|
+| Container won't start | `docker compose logs t4a-mcp` |
+| ChromaDB not loading | Verify `chroma_db/` exists, check file permissions |
+| Build is slow | Ensure BuildKit is enabled: `docker version \| grep BuildKit` |
+| Image too large | Inspect layers: `docker history etiamsi/t4a-mcp:latest` |
