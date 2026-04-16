@@ -11,7 +11,8 @@
       "Bash(find:*)",
       "Bash(python:*)",
       "Bash(xargs grep:*)",
-      "Bash(git:*)"
+      "Bash(git:*)",
+      "Bash(xargs ls *)"
     ]
   }
 }
