@@ -19,14 +19,39 @@ This starts two services:
 
 ## Docker Hub Image
 
-The production image is published to Docker Hub as `etiamsi/t4a-mcp:latest`.
+The production image is published to Docker Hub as `time4action/t4a-mcp:latest`.
 
-### Build and Push a New Image
+### Build and Push Scripts
+
+Every build is tagged with a timestamp (`YYYYMMDD-HHMMSS`). The `:latest` and `:dev` tags are only applied when explicitly requested via flags.
 
 ```bash
-docker build -t etiamsi/t4a-mcp:latest .
-docker push etiamsi/t4a-mcp:latest
+# Build with timestamp tag only
+./scripts/build.sh
+
+# Build and also tag as :dev (for testing)
+./scripts/build.sh --dev
+
+# Build and also tag as :latest (production release)
+./scripts/build.sh --latest
+
+# Both at once
+./scripts/build.sh --latest --dev
+
+# Push the timestamped image only
+./scripts/push.sh
+
+# Push timestamped + :latest
+./scripts/push.sh --latest
+
+# Push timestamped + :dev
+./scripts/push.sh --dev
+
+# Push all
+./scripts/push.sh --latest --dev
 ```
+
+Windows equivalents: `scripts\build.bat` and `scripts\push.bat` (same flags).
 
 ### Update a Running Server
 
@@ -133,4 +158,4 @@ docker compose up -d --scale t4a-mcp=3
 | Container won't start | `docker compose logs t4a-mcp` |
 | ChromaDB not loading | Verify `chroma_db/` exists, check file permissions |
 | Build is slow | Ensure BuildKit is enabled: `docker version \| grep BuildKit` |
-| Image too large | Inspect layers: `docker history etiamsi/t4a-mcp:latest` |
+| Image too large | Inspect layers: `docker history time4action/t4a-mcp:latest` |
