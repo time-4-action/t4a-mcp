@@ -1,6 +1,6 @@
 services:
   t4a-mcp:
-    image: etiamsi/t4a-mcp:latest
+    image: time4action/t4a-mcp:latest
     container_name: t4a-mcp
     restart: unless-stopped
 
