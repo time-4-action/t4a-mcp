@@ -58,7 +58,7 @@ class ProductStock(BaseModel):
     """Successful stock lookup result."""
 
     title: str = Field(description="Product name/title.")
-    amount: float = Field(description="Available stock quantity.")
+    amount: float = Field(description="Free (available-to-sell) stock quantity, i.e. on-hand minus reservations.")
     unit: str = Field(description="Unit of measurement (e.g. 'kos', 'kg').")
 
 
@@ -305,8 +305,8 @@ def get_pricelists(count_code: str) -> ProductPricelists | ProductPricelistsErro
 def get_stock(sku: str, warehouse_id: str | None = None) -> ProductStock | ProductStockError:
     """Look up warehouse stock for a product by SKU via MetaKocka API.
 
-    Returns stock information for the given warehouse (or the configured default)
-    including amount, reservations (if enabled), and microlocation.
+    Returns the free (available-to-sell) stock quantity for the given warehouse
+    (or the configured default) — on-hand amount minus reservations.
     """
     wh_id = warehouse_id if warehouse_id else MK_WAREHOUSE_ID
 
@@ -359,8 +359,12 @@ def get_stock(sku: str, warehouse_id: str | None = None) -> ProductStock | Produ
             unit=product.get("unit", "pcs"),
         )
 
-    # Sum up amounts across all entries (multiple rows per serial number)
-    total_amount = sum(float(item.get("amount", 0)) for item in stock_list)
+    # Sum up free (available-to-sell) amounts across all entries (multiple rows
+    # per serial number). free_amount = on-hand minus reservations; fall back to
+    # amount when reservations are disabled and free_amount is absent.
+    total_amount = sum(
+        float(item.get("free_amount") or item.get("amount", 0)) for item in stock_list
+    )
 
     # Use first entry for title and unit (same for all rows)
     first_stock = stock_list[0]
