@@ -120,4 +120,8 @@ Add `knowledge:read` to any role that should access the `company_knowledge` tool
 
 Required: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `AUTH0_DOMAIN`, `AUTH0_MCP_AUDIENCE`, `MK_SECRET_KEY`, `MK_COMPANY_ID`, `MK_BASE_URL`, `MK_WAREHOUSE_ID`, `PRODUCTS_API_URL`, `MONGO_URI`, `CHROMA_HOST`, `CHROMA_PORT`, `ADMIN_API_KEY`.
 
-Optional: `API_KEY` (static key granting `admin:all` for service-to-service), `ENRICH_MODEL`, `PARENT_CHUNK_SIZE`, `CHILD_CHUNK_SIZE`, `TOP_K_RERANK`, `GMAIL_EMAIL`, `GMAIL_APP_PASSWORD`.
+Optional: `API_KEY` (static key granting `admin:all` for service-to-service), `ENRICH_MODEL`, `PARENT_CHUNK_SIZE`, `CHILD_CHUNK_SIZE`, `TOP_K_RERANK`, `GMAIL_EMAIL`, `GMAIL_APP_PASSWORD`, `REINDEX_PRODUCTS_CRON`, `REINDEX_PRODUCTS_TZ`.
+
+## Scheduled Product Reindex
+
+Set `REINDEX_PRODUCTS_CRON` (standard 5-field crontab, e.g. `0 3 * * *`) to run the product reindex automatically in-process, with no dependency on an external trigger (n8n). `REINDEX_PRODUCTS_TZ` controls the timezone (default `UTC`). When `REINDEX_PRODUCTS_CRON` is unset/empty, the scheduler is not started and reindexing happens only on-demand via `POST /admin/reindex-products`. The scheduler (`src/server/scheduler.py`, APScheduler `AsyncIOScheduler`) is started/stopped in the app lifespan and runs `src/server/services/product_reindex.py:reindex_products` — the same logic the admin endpoint calls.

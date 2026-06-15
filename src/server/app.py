@@ -14,6 +14,7 @@ from src.server import mcp
 from src.server.auth import verify_token
 from src.server.permissions import set_user
 from src.server.routes.admin import router as admin_router
+from src.server.scheduler import shutdown_scheduler, start_scheduler
 from src.vectorstore.manager import initialize_vectorstore
 import src.server.tools
 
@@ -84,9 +85,14 @@ async def lifespan(app: FastAPI):
     await ensure_collection()
     # Pre-load cross-encoder reranker model into memory
     get_reranker()
+    # Start the cron-driven product reindex scheduler (no-op if unconfigured)
+    start_scheduler()
     # Run MCP app lifecycle (required for FastMCP SSE transport)
-    async with mcp_app.lifespan(app):
-        yield
+    try:
+        async with mcp_app.lifespan(app):
+            yield
+    finally:
+        shutdown_scheduler()
 
 
 api = FastAPI(

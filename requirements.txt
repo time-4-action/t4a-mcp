@@ -32,6 +32,9 @@ anthropic>=0.28.0
 # Database
 motor
 
+# Scheduling (cron-driven product reindex)
+apscheduler>=3.10,<4.0
+
 # Environment
 python-dotenv
 
