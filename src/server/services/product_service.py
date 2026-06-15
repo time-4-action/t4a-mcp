@@ -58,7 +58,17 @@ class ProductStock(BaseModel):
     """Successful stock lookup result."""
 
     title: str = Field(description="Product name/title.")
-    amount: float = Field(description="Free (available-to-sell) stock quantity, i.e. on-hand minus reservations.")
+    amount: float = Field(
+        description="Free (available-to-sell) stock quantity — on-hand minus reservations. "
+        "This is the headline figure to use unless the user asks for on-hand or reserved."
+    )
+    on_hand_amount: float = Field(
+        description="Total physical stock on hand, including reserved units. "
+        "Equals `amount` when the company does not use reservations."
+    )
+    reserved_amount: float = Field(
+        description="Quantity reserved (e.g. for open orders). 0 when reservations are not in use."
+    )
     unit: str = Field(description="Unit of measurement (e.g. 'kos', 'kg').")
 
 
@@ -356,22 +366,35 @@ def get_stock(sku: str, warehouse_id: str | None = None) -> ProductStock | Produ
         return ProductStock(
             title=product.get("name", ""),
             amount=0.0,
+            on_hand_amount=0.0,
+            reserved_amount=0.0,
             unit=product.get("unit", "pcs"),
         )
 
-    # Sum up free (available-to-sell) amounts across all entries (multiple rows
-    # per serial number). free_amount = on-hand minus reservations; fall back to
-    # amount when reservations are disabled and free_amount is absent.
-    total_amount = sum(
-        float(item.get("free_amount") or item.get("amount", 0)) for item in stock_list
-    )
+    # Sum each stock figure across all entries (multiple rows per serial number).
+    # MetaKocka only returns reserved_amount/free_amount when the company uses
+    # reservations; without them free == on-hand and reserved == 0.
+    on_hand = 0.0
+    reserved = 0.0
+    free = 0.0
+    for item in stock_list:
+        amount = float(item.get("amount", 0))
+        item_reserved = float(item.get("reserved_amount", 0))
+        on_hand += amount
+        reserved += item_reserved
+        if item.get("free_amount") is not None:
+            free += float(item["free_amount"])
+        else:
+            free += amount - item_reserved
 
     # Use first entry for title and unit (same for all rows)
     first_stock = stock_list[0]
 
     return ProductStock(
         title=first_stock.get("title", ""),
-        amount=total_amount,
+        amount=free,
+        on_hand_amount=on_hand,
+        reserved_amount=reserved,
         unit=first_stock.get("unit", "pcs"),
     )
 

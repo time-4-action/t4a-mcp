@@ -6,7 +6,13 @@ from src.server.services.product_service import get_stock, ProductStock, Product
 @mcp.tool()
 @with_permission_check
 def get_product_stock(sku: str, warehouse_id: str | None = None) -> ProductStock | ProductStockError:
-    """Look up warehouse stock for a product by SKU. Returns the free (available-to-sell) quantity — on-hand minus reservations.
+    """Look up warehouse stock for a product by SKU.
+
+    Returns the stock breakdown: `amount` = free (available-to-sell) quantity (on-hand minus
+    reservations), `on_hand_amount` = total physical stock including reserved units, and
+    `reserved_amount` = quantity reserved. Use `amount` (free) as the default answer unless the
+    user specifically asks about on-hand/physical or reserved stock. For companies that do not use
+    reservations, all three reflect the same on-hand figure (reserved is 0).
 
     If the user provides a SKU directly (always starts with 'P', e.g. 'P01250003085'), call this tool immediately.
     If the user provides a product name or description instead, first call `identify_product` to find the SKU, then call this tool with the returned `code`.
