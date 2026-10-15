@@ -1,0 +1,55 @@
+# Production compose for /data/stack/apps/time-4-action/mcp on the VM.
+# CI exports APP_IMAGE=ghcr.io/time-4-action/t4a-mcp:<commit sha>; without it this runs
+# :latest. The VM never builds: images come from GHCR. Copy changes to the server by
+# hand; the deploy only swaps the t4a-mcp image and never restarts chromadb.
+services:
+  t4a-mcp:
+    image: ${APP_IMAGE:-ghcr.io/time-4-action/t4a-mcp:latest}
+    container_name: t4a-mcp
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      chromadb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    volumes:
+      - ./chroma_db:/app/chroma_db
+      - ./uploads:/app/uploads
+      - ./bm25_indexes:/app/bm25_indexes
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  chromadb:
+    image: chromadb/chroma:0.6.3
+    container_name: t4a-chromadb
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./chroma_db:/chroma/chroma
+    environment:
+      IS_PERSISTENT: "TRUE"
+      PERSIST_DIRECTORY: /chroma/chroma
+      ANONYMIZED_TELEMETRY: "FALSE"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

@@ -1,6 +1,7 @@
 """MCP server that exposes product identification via vector similarity search."""
 
 import json
+import os
 from contextlib import asynccontextmanager
 
 import uvicorn
@@ -155,7 +156,11 @@ async def health():
         checks["mongodb"] = f"error: {e}"
 
     all_ok = all(v in ("ok", "not_loaded") for v in checks.values())
-    return {"status": "ok" if all_ok else "degraded", **checks}
+    return {
+        "status": "ok" if all_ok else "degraded",
+        "version": os.getenv("APP_VERSION", "unknown"),
+        **checks,
+    }
 
 
 api.mount("/mcp", mcp_app)

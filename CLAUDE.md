@@ -25,12 +25,11 @@ docker run -d -p 8001:8000 \
 # Run the server (development)
 uvicorn src.server.app:api --host 0.0.0.0 --port 8000 --reload
 
-# Docker (production)
+# Docker (local)
 docker compose up -d
-
-# Deploy update
-docker compose pull && docker compose up -d
 ```
+
+Production deploys automatically: every push to `main` runs `.github/workflows/deploy.yml` (lint → build image to `ghcr.io/time-4-action/t4a-mcp:<sha>` → SSH deploy with health check and automatic rollback → public `/health` version check). Pull requests get the lint plus an image build and import smoke test. Details in `docs/deployment.md`.
 
 Key endpoints: `/` (info), `/health`, `/mcp` (SSE, requires Auth0 JWT), `/admin/*` (requires `x-api-key`), `/admin-ui` (browser UI).
 
