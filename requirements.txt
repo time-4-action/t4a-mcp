@@ -1,5 +1,5 @@
 # Core dependencies for MCP Server
-fastmcp==2.14.4
+fastmcp==2.14.7
 fastapi
 uvicorn[standard]
 python-multipart
