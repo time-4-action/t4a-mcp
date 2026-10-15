@@ -52,6 +52,15 @@ ENV PATH="/opt/venv/bin:$PATH"
 COPY src/ ./src/
 COPY app/ ./app/
 
+# Links the GHCR package to this repository.
+LABEL org.opencontainers.image.source=https://github.com/time-4-action/t4a-mcp
+
+# CI passes the commit SHA; the deploy checks the container reports it, and
+# /health returns it as `version`.
+ARG GIT_SHA=unknown
+ENV APP_VERSION=$GIT_SHA
+LABEL org.opencontainers.image.revision=$GIT_SHA
+
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \

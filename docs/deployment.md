@@ -4,7 +4,7 @@ This guide covers running the T4A MCP Server in production with Docker.
 
 ---
 
-## Quick Start (Docker Compose)
+## Quick Start (local Docker Compose)
 
 ```bash
 cp .env.example .env   # fill in values
@@ -15,50 +15,88 @@ This starts two services:
 - **t4a-mcp** — the MCP server on port `8000`
 - **t4a-chromadb** — ChromaDB on port `8001`
 
+Production is deployed by CI on every push to `main`; see [CI/CD](#cicd).
+
 ---
 
-## Docker Hub Image
+## CI/CD
 
-The production image is published to Docker Hub as `time4action/t4a-mcp:latest`.
+`.github/workflows/deploy.yml` (workflow `ci`) runs `check` → `deploy` → `verify`.
 
-### Build and Push Scripts
+**check** runs on every pull request and every push to `main`: `ruff` for syntax
+errors and undefined names (there is no test suite yet). On pull requests it also
+builds the Docker image (not pushed) and imports the knowledge-base, auth and
+scheduler modules inside it, so a broken `Dockerfile` or `requirements.txt` fails the pull
+request rather than the deploy. A newer push to a pull request cancels its running
+check; runs on `main` are queued, so pushes deploy strictly in order.
 
-Every build is tagged with a timestamp (`YYYYMMDD-HHMMSS`). The `:latest` and `:dev` tags are only applied when explicitly requested via flags.
+**deploy** runs only on `main` after a green check, one at a time. It builds the
+image on GitHub Actions with the commit SHA baked in as `APP_VERSION`, pushes
+`ghcr.io/time-4-action/t4a-mcp:<sha>` and `:latest` to GitHub Container Registry,
+then SSHes to the VM as `deploy` and, in `/data/stack/apps/time-4-action/mcp`:
 
-```bash
-# Build with timestamp tag only
-./scripts/build.sh
+1. records the image the running `t4a-mcp` container uses;
+2. logs in to `ghcr.io` with the job's own `GITHUB_TOKEN` (valid only while the job
+   runs; logged out again on exit, so the VM stores no registry credential),
+   `docker compose pull t4a-mcp` (three attempts) and `docker compose up -d t4a-mcp`
+   with `APP_IMAGE` exported to the new SHA. ChromaDB is not restarted;
+3. waits up to 3 minutes for `http://127.0.0.1:8000/health` to answer 200 (startup
+   loads the reranker model before it listens);
+4. checks the container reports `APP_VERSION` equal to the commit SHA.
 
-# Build and also tag as :dev (for testing)
-./scripts/build.sh --dev
+If 3 or 4 fails it prints the logs, rolls back to the recorded image and fails the
+run. **verify** then requests `/health` on the public URL
+(`https://mcp.time-4-action.com`, override with the `PRODUCTION_URL` repository
+variable) and requires its `version` field to equal the commit SHA.
 
-# Build and also tag as :latest (production release)
-./scripts/build.sh --latest
+`/health` answers 200 even when ChromaDB or MongoDB is `degraded`, so a database
+outage never triggers a rollback.
 
-# Both at once
-./scripts/build.sh --latest --dev
+The deploy only swaps images. `.env` and `docker-compose.yml` on the server are
+edited by hand; the server copy of the compose file is `deploy/docker-compose.yml`
+(the root one is for local use). To go back to an older release, re-run that
+commit's workflow, or on the server:
+`export APP_IMAGE=ghcr.io/time-4-action/t4a-mcp:<sha> && docker compose up -d t4a-mcp`
+(a `docker login ghcr.io` first if the package is private).
 
-# Push the timestamped image only
-./scripts/push.sh
+### GitHub settings
 
-# Push timestamped + :latest
-./scripts/push.sh --latest
+Pushing and pulling the image use the workflow's `GITHUB_TOKEN` (`packages: write`
+on the deploy job), so there is no registry secret. The
+`org.opencontainers.image.source` label in the Dockerfile links the package to this
+repository.
 
-# Push timestamped + :dev
-./scripts/push.sh --dev
+Organization secrets (shared with the other time-4-action repos on this VM),
+available to the `production` environment:
 
-# Push all
-./scripts/push.sh --latest --dev
-```
+| Secret | Value |
+|---|---|
+| `PROD_DEPLOY_HOST` | The VM's hostname or IP |
+| `PROD_DEPLOY_SSH_KEY` | Private key whose public half is in `deploy`'s `authorized_keys` |
+| `PROD_DEPLOY_FINGERPRINT` | `SHA256:…` from `ssh-keygen -lf /etc/ssh/ssh_host_ecdsa_key.pub` |
 
-Windows equivalents: `scripts\build.bat` and `scripts\push.bat` (same flags).
+Optional repository variables: `PRODUCTION_URL`, `DEPLOY_USER` (default `deploy`),
+`DEPLOY_DIR` (default `/data/stack/apps/time-4-action/mcp`). The SSH user must be in
+the `docker` group, be able to write the server directory, and have `curl`.
 
-### Update a Running Server
+### Server setup (once)
 
-```bash
-docker compose pull && docker compose up -d
-docker logs -f t4a-mcp
-```
+Replace the server's `docker-compose.yml` with `deploy/docker-compose.yml`. A copy
+with a fixed `image:` tag (such as the old `etiamsi/t4a-mcp:latest`) ignores
+`APP_IMAGE`, so every deploy would fail its `APP_VERSION` check and roll back. `.env`
+sits beside it and holds the runtime secrets.
+
+### Dependency updates
+
+`.github/dependabot.yml` opens at most one grouped pull request per ecosystem a
+month (pip minor + patch, the Docker base image's patch versions, GitHub Actions);
+each goes through `check` like any other pull request.
+
+### Manual build scripts
+
+`scripts/build.sh` / `scripts/push.sh` (and the `.bat` versions) build and push
+`time4action/t4a-mcp` to Docker Hub by hand. Production no longer uses them; deploy by
+merging to `main`.
 
 ---
 
@@ -158,4 +196,4 @@ docker compose up -d --scale t4a-mcp=3
 | Container won't start | `docker compose logs t4a-mcp` |
 | ChromaDB not loading | Verify `chroma_db/` exists, check file permissions |
 | Build is slow | Ensure BuildKit is enabled: `docker version \| grep BuildKit` |
-| Image too large | Inspect layers: `docker history time4action/t4a-mcp:latest` |
+| Image too large | Inspect layers: `docker history ghcr.io/time-4-action/t4a-mcp:latest` |
