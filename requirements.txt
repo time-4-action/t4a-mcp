@@ -1,5 +1,5 @@
 # Core dependencies for MCP Server
-fastmcp==2.14.4
+fastmcp==2.14.7
 # fastmcp's pydocket 0.16 imports fakeredis.aioredis.FakeServer at startup,
 # which fakeredis 2.39 removed: the app exits with an ImportError.
 fakeredis<2.39
