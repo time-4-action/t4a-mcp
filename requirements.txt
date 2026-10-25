@@ -30,7 +30,7 @@ sentence-transformers
 # torch installed separately (CPU-only) — see Dockerfile
 
 # LLM enrichment
-anthropic>=0.28.0
+anthropic>=0.125.0
 
 # Database
 motor
