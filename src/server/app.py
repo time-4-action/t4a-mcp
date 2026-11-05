@@ -27,6 +27,7 @@ from app.routes.upload_sitemap import router as upload_sitemap_router
 from app.routes.reindex import router as reindex_router
 from app.routes.sources import router as sources_router
 from app.routes.search_test import router as search_test_router
+from app.routes.agent_knowledge import router as agent_knowledge_router
 from app.vector.chroma import ensure_collection
 from app.search.reranker import get_reranker
 
@@ -115,6 +116,9 @@ api.include_router(upload_sitemap_router)
 api.include_router(reindex_router)
 api.include_router(sources_router)
 api.include_router(search_test_router)
+
+# Read-only knowledge API for the T4A agent (AGENT_READ_KEY)
+api.include_router(agent_knowledge_router)
 
 
 @api.get("/admin-ui", include_in_schema=False)

@@ -1,0 +1,7 @@
+# Test-only dependencies. The tests mock retrieval and MongoDB, so they need
+# neither the full requirements.txt (torch, unstructured) nor running services.
+pytest
+httpx
+fastapi
+motor
+python-dotenv

@@ -28,6 +28,7 @@ Copy `.env.example` to `.env` and fill in your values. Never commit `.env` to gi
 | Variable | Description |
 |---|---|
 | `API_KEY` | Static key for service-to-service MCP access (grants `admin:all`) |
+| `AGENT_READ_KEY` | Read-only `x-api-key` for the T4A agent: opens only `/agent/knowledge/*` (search, sources), not `/admin/*` or `/mcp`. Unset = 503. Generate with `openssl rand -hex 32` |
 | `GMAIL_EMAIL` | Gmail address for email ingestion |
 | `GMAIL_APP_PASSWORD` | Gmail app password for IMAP access |
 | `ENRICH_MODEL` | Claude model for enrichment (default: `claude-haiku-4-5-20251001`) |
