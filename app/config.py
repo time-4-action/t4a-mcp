@@ -25,6 +25,9 @@ ENRICH_MODEL = os.getenv("ENRICH_MODEL", "claude-haiku-4-5-20251001")
 # Admin auth (reuse existing API_KEY env var)
 ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", os.getenv("API_KEY", ""))
 
+# Read-only key for the T4A agent: opens /agent/knowledge/* only (unset = 503)
+AGENT_READ_KEY = os.getenv("AGENT_READ_KEY", "")
+
 # Storage
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/app/uploads")
 BM25_DIR = os.getenv("BM25_DIR", "/app/bm25_indexes")

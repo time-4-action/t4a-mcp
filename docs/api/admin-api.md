@@ -98,3 +98,53 @@ curl -X DELETE https://<host>/admin/source/<source_id> \
 ## Browser UI
 
 A browser-based admin interface is available at `/admin-ui` for managing sources without using `curl`.
+
+---
+
+## Agent API (read-only)
+
+The T4A agent (t4a-agent) reads the knowledge base through two routes guarded by a separate key, `AGENT_READ_KEY` (`x-api-key` header). That key opens only these routes; `ADMIN_API_KEY` does not open them. If `AGENT_READ_KEY` is unset they answer `503`; a missing or wrong key gets `401`.
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/agent/knowledge/search` | Same retrieval as the `company_knowledge` MCP tool (hybrid search, rerank, parent expansion), full text |
+| `GET` | `/agent/knowledge/sources` | All indexed sources, newest first |
+
+### Search
+
+Body: `{"query": "...", "top_k": 5}` (`query` 1-500 chars, `top_k` 1-10, default 5).
+
+```json
+{
+  "results": [
+    {
+      "source_id": "665f...",
+      "source_title": "Warranty terms",
+      "source_type": "file",
+      "source_url": null,
+      "text": "full parent chunk text (max 4000 chars)",
+      "score": 7.31
+    }
+  ]
+}
+```
+
+`source_url` is set for URL sources and `null` otherwise. `score` is the cross-encoder rerank score.
+
+### Sources
+
+```json
+{
+  "total": 1,
+  "items": [
+    {"source_id": "665f...", "title": "Warranty terms", "type": "file", "url": null, "chunks": 12, "created_at": "2026-10-01T09:00:00Z"}
+  ]
+}
+```
+
+```bash
+curl -X POST https://mcp.time-4-action.com/agent/knowledge/search \
+  -H "x-api-key: $AGENT_READ_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "warranty period", "top_k": 5}'
+```
