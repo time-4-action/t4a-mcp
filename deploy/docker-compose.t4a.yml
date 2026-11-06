@@ -1,0 +1,86 @@
+# Production compose for /srv/mcp on t4a (Hetzner; time-4-action/t4a-infra, servers/t4a).
+# Save it there as docker-compose.yml, next to .env. CI exports APP_IMAGE=ghcr.io/time-4-action/t4a-mcp:<sha>
+# (DEPLOY_DIR=/srv/mcp on the `production` environment); without it this runs :latest. The server never
+# builds; copy changes to this file by hand. The deploy only swaps the t4a-mcp image and never restarts
+# chromadb.
+#
+# Traefik (/srv/edge) routes mcp.time-4-action.com to t4a-mcp, behind Cloudflare. MCP responses stream:
+# Traefik has no write timeout and its compress middleware skips text/event-stream. The `mcp-cors`
+# middleware answers browser preflight requests as nginx on t2 did (the app has no CORS of its own).
+# MongoDB is t4a's shared one (/srv/mongo): MONGO_URI in .env is mongodb://mcp:...@mongo:27017/t4a.
+# ChromaDB is only reachable by t4a-mcp (CHROMA_HOST=chromadb, CHROMA_PORT=8000).
+services:
+  t4a-mcp:
+    image: ${APP_IMAGE:-ghcr.io/time-4-action/t4a-mcp:latest}
+    container_name: t4a-mcp
+    restart: unless-stopped
+    # Loopback only, for CI's health check (127.0.0.1:8000/health). Docker-published ports skip ufw, so
+    # never 0.0.0.0.
+    ports:
+      - "127.0.0.1:8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      chromadb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    volumes:
+      - ./chroma_db:/app/chroma_db
+      - ./uploads:/app/uploads
+      - ./bm25_indexes:/app/bm25_indexes
+    mem_limit: 2g
+    networks:
+      - default
+      - edge
+      - mongo
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=edge
+      - traefik.http.routers.mcp.rule=Host(`mcp.time-4-action.com`)
+      - traefik.http.routers.mcp.middlewares=mcp-cors
+      - traefik.http.services.mcp.loadbalancer.server.port=8000
+      - traefik.http.middlewares.mcp-cors.headers.accessControlAllowOriginList=*
+      - traefik.http.middlewares.mcp-cors.headers.accessControlAllowMethods=GET,POST,PUT,PATCH,DELETE,OPTIONS
+      - traefik.http.middlewares.mcp-cors.headers.accessControlAllowHeaders=Authorization,Content-Type,Accept,Origin,X-Requested-With,Mcp-Session-Id
+      - traefik.http.middlewares.mcp-cors.headers.accessControlMaxAge=86400
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  chromadb:
+    image: chromadb/chroma:0.6.3
+    container_name: t4a-chromadb
+    restart: unless-stopped
+    volumes:
+      - ./chroma_db:/chroma/chroma
+    environment:
+      IS_PERSISTENT: "TRUE"
+      PERSIST_DIRECTORY: /chroma/chroma
+      ANONYMIZED_TELEMETRY: "FALSE"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    mem_limit: 1g
+    networks:
+      - default
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  edge:
+    external: true
+  mongo:
+    external: true
